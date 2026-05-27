@@ -9,6 +9,8 @@ on:
 
 jobs:
   check-system:
+    # ОЧЕНЬ ВАЖНО: указываем, что работать должно на твоем Mac Mini
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
