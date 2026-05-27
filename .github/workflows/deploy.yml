@@ -1,0 +1,79 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Замени на 1.26, если уже используешь бету/rc
+
+      - name: Build Go Backend
+        working-directory: ./backend
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../market-api ./cmd/api/main.go
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build React Frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-bin
+          path: market-api
+          retention-days: 1
+
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/
+          retention-days: 1
+
+  deploy:
+    name: Deploy to Mac Mini
+    needs: build
+    runs-on: self-hosted # Этот тег заставит GitHub искать твой раннер
+    steps:
+      - name: Download Backend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-bin
+          path: ./downloaded-backend
+
+      - name: Download Frontend Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: ./downloaded-frontend
+
+      - name: Deploy and Restart Services
+        run: |
+          # 1. Обновление фронтенда
+          rm -rf /var/www/market/html/*
+          cp -r ./downloaded-frontend/* /var/www/market/html/
+          
+          # 2. Обновление бэкенда
+          cp ./downloaded-backend/market-api /opt/market/market-api
+          chmod +x /opt/market/market-api
+          
+          # 3. Перезапуск демона (пароль не спросит благодаря visudo)
+          sudo systemctl restart go-market.service
