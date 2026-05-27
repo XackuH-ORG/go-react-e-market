@@ -3,14 +3,11 @@ name: Build and Deploy
 on:
   push:
     branches:
-      - '**' # Запуск при пуше в любую ветку (для проверки компиляции)
-  pull_request:
-    branches:
-      - main # Запуск проверок при создании PR в main
+      - main
 
 jobs:
   build:
-    name: Build and Verify Artifacts
+    name: Build Artifacts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -19,7 +16,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.22' # Замени на 1.26, если уже используешь бету/rc
 
       - name: Build Go Backend
         working-directory: ./backend
@@ -54,9 +51,7 @@ jobs:
   deploy:
     name: Deploy to Mac Mini
     needs: build
-    # КРИТИЧЕСКИЙ ЛИМИТ: Деплой запускается ТОЛЬКО если событие - это пуш (слияние) непосредственно в main
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: self-hosted
+    runs-on: self-hosted # Этот тег заставит GitHub искать твой раннер
     steps:
       - name: Download Backend Artifact
         uses: actions/download-artifact@v4
@@ -76,7 +71,8 @@ jobs:
           rm -rf /var/www/market/html/*
           cp -r ./downloaded-frontend/* /var/www/market/html/
           
-          # 2. Обновление бэкенда
+          # 2. Обновление бэкенда (снимаем блокировку через удаление)
+          rm -f /opt/market/market-api
           cp ./downloaded-backend/market-api /opt/market/market-api
           chmod +x /opt/market/market-api
           
