@@ -21,7 +21,7 @@ jobs:
       - name: Build Go Backend
         working-directory: ./backend
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../market-api ./cmd/api/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../market-api ./cmd/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
