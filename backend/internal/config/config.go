@@ -18,9 +18,11 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Addr        string        `yaml:"addr" env:"HTTP_ADDR" env-default:"0.0.0.0:8080"`
-	Timeout     time.Duration `yaml:"timeout" env:"HTTP_TIMEOUT" env-default:"4s"`
-	IdleTimeout time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
+	Addr         string        `yaml:"addr" env:"HTTP_ADDR" env-default:"0.0.0.0:8080"`
+	ReadTimeout  time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT" env-default:"4s"`
+	WriteTimeout time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"4s"`
+	IdleTimeout  time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
+	ReqTimeout   time.Duration `yaml:"req_timeout" env:"HTTP_REQ_TIMEOUT" env-default:"60s"`
 }
 
 type DBConfig struct {
@@ -28,7 +30,7 @@ type DBConfig struct {
 	Driver string `yaml:"driver" env:"GOOSE_DRIVER" env-default:"postgres"`
 }
 
-// MustLoad loads the configuration. It panics if the configuration cannot be loaded.
+// MustLoad загружает конфигурацию. Паникует, если не удается загрузить конфигурацию
 func MustLoad() *Config {
 	// 1. Попытка загрузить .env
 	// Сначала ищем .env в текущей директории

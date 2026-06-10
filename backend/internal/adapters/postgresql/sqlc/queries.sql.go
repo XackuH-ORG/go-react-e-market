@@ -49,13 +49,13 @@ INSERT INTO orders (
 `
 
 type CreateOrderParams struct {
-	PublicNumber    string         `json:"public_number"`
-	UserID          uuid.UUID      `json:"user_id"`
-	DeliveryType    DeliveryType   `json:"delivery_type"`
-	DeliveryAddress pgtype.Text    `json:"delivery_address"`
-	PickupPointID   pgtype.UUID    `json:"pickup_point_id"`
-	TotalAmount     pgtype.Numeric `json:"total_amount"`
-	PromoCodeID     pgtype.UUID    `json:"promo_code_id"`
+	PublicNumber    string       `json:"public_number"`
+	UserID          uuid.UUID    `json:"user_id"`
+	DeliveryType    DeliveryType `json:"delivery_type"`
+	DeliveryAddress pgtype.Text  `json:"delivery_address"`
+	PickupPointID   pgtype.UUID  `json:"pickup_point_id"`
+	TotalAmount     int32        `json:"total_amount"`
+	PromoCodeID     pgtype.UUID  `json:"promo_code_id"`
 }
 
 func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error) {
@@ -93,10 +93,10 @@ VALUES ($1, $2, $3, $4)
 `
 
 type CreateOrderItemParams struct {
-	OrderID         uuid.UUID      `json:"order_id"`
-	SkuID           uuid.UUID      `json:"sku_id"`
-	Quantity        int32          `json:"quantity"`
-	PriceAtPurchase pgtype.Numeric `json:"price_at_purchase"`
+	OrderID         uuid.UUID `json:"order_id"`
+	SkuID           uuid.UUID `json:"sku_id"`
+	Quantity        int32     `json:"quantity"`
+	PriceAtPurchase int32     `json:"price_at_purchase"`
 }
 
 func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) error {
@@ -174,11 +174,11 @@ WHERE c.user_id = $1 AND s.deleted_at IS NULL
 `
 
 type GetCartItemsRow struct {
-	Quantity int32          `json:"quantity"`
-	SkuID    uuid.UUID      `json:"sku_id"`
-	Price    pgtype.Numeric `json:"price"`
-	Stock    int32          `json:"stock"`
-	Name     string         `json:"name"`
+	Quantity int32     `json:"quantity"`
+	SkuID    uuid.UUID `json:"sku_id"`
+	Price    int32     `json:"price"`
+	Stock    int32     `json:"stock"`
+	Name     string    `json:"name"`
 }
 
 func (q *Queries) GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCartItemsRow, error) {

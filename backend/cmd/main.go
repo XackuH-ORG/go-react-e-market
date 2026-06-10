@@ -6,8 +6,9 @@ import (
 	"os"
 
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/lib/logger/sl"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/pkg/logger"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -23,12 +24,12 @@ func main() {
 	log.Info("Запуск приложения", "env", cfg.Env)
 
 	// NOTE: База данных
-	conn, err := pgx.Connect(ctx, cfg.DB.DSN)
+	conn, err := pgxpool.New(ctx, cfg.DB.DSN)
 	if err != nil {
-		log.Error("Не удалось подключиться к базе данных", "error", err)
+		log.Error("Не удалось подключиться к базе данных", sl.Err(err))
 		os.Exit(1)
 	}
-	defer conn.Close(ctx)
+	defer conn.Close()
 
 	log.Info("Успешное подключение к базе данных")
 
@@ -40,8 +41,7 @@ func main() {
 
 	// NOTE: Запуск сервера
 	if err := api.run(api.mount()); err != nil {
-		log.Error("Сервер не запустился!", "error", err)
+		log.Error("Сервер не запустился!", sl.Err(err))
 		os.Exit(1)
 	}
 }
-

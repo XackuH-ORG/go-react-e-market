@@ -50,9 +50,9 @@ CREATE TABLE products (
 CREATE TABLE skus (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    sku_code VARCHAR(100) NOT NULL UNIQUE,
+    sku_code VARCHAR(100) NOT NULL,
     attributes JSONB, -- В Go сгенерируется как json.RawMessage
-    price DECIMAL(12, 2) NOT NULL CHECK (price >= 0),
+    price INTEGER NOT NULL CHECK (price >= 0),
     stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
     deleted_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -81,7 +81,7 @@ CREATE TABLE promo_codes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) NOT NULL UNIQUE,
     discount_type discount_type NOT NULL,
-    discount_value DECIMAL(12, 2) NOT NULL CHECK (discount_value > 0),
+    discount_value INTEGER NOT NULL CHECK (discount_value > 0),
     valid_until TIMESTAMP WITH TIME ZONE,
     usage_limit INTEGER,
     used_count INTEGER NOT NULL DEFAULT 0 CHECK (used_count >= 0),
@@ -99,8 +99,8 @@ CREATE TABLE orders (
     delivery_address TEXT,
     pickup_point_id UUID REFERENCES pickup_points(id) ON DELETE RESTRICT,
     promo_code_id UUID REFERENCES promo_codes(id) ON DELETE SET NULL,
-    total_amount DECIMAL(12, 2) NOT NULL CHECK (total_amount >= 0),
-    discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
+    total_amount INTEGER NOT NULL CHECK (total_amount >= 0),
+    discount_amount INTEGER NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     CHECK (
@@ -114,7 +114,7 @@ CREATE TABLE order_items (
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     sku_id UUID NOT NULL REFERENCES skus(id) ON DELETE RESTRICT,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
-    price_at_purchase DECIMAL(12, 2) NOT NULL CHECK (price_at_purchase >= 0),
+    price_at_purchase INTEGER NOT NULL CHECK (price_at_purchase >= 0),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
@@ -123,7 +123,7 @@ CREATE TABLE transactions (
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
     payment_method VARCHAR(100),
     status transaction_status NOT NULL DEFAULT 'PENDING',
-    amount DECIMAL(12, 2) NOT NULL CHECK (amount > 0),
+    amount INTEGER NOT NULL CHECK (amount > 0),
     provider_transaction_id VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
@@ -135,6 +135,7 @@ CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_sessions_token ON sessions(token);
 CREATE INDEX idx_skus_product_id ON skus(product_id);
 CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE UNIQUE INDEX idx_unique_active_skus ON skus(sku_code) WHERE deleted_at IS NULL;
 
 -- +goose Down
 DROP TABLE IF EXISTS transactions;
