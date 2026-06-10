@@ -1,19 +1,26 @@
 package products
 
-import "context"
+import (
+	"context"
+
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
+)
 
 type Service interface {
 	ListProducts(ctx context.Context) error
 }
 
 type svc struct {
-	// репозиторий для работы с базой данных
+	db repo.Querier
 }
 
-func NewService() Service {
-	return &svc{}
+func NewService(db repo.Querier) Service {
+	return &svc{
+		db: db,
+	}
 }
 
 func (s *svc) ListProducts(ctx context.Context) error {
 	return nil
 }
+

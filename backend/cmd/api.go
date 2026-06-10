@@ -1,14 +1,16 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
 )
 
 func (app *application) mount() http.Handler {
@@ -29,7 +31,9 @@ func (app *application) mount() http.Handler {
 		w.Write([]byte("all good"))
 	})
 
-	productService := products.NewService()
+	// Инициализируем репозиторий sqlc и прокидываем в сервис продуктов
+	queries := repo.New(app.db)
+	productService := products.NewService(queries)
 	productHandler := products.NewHandler(productService)
 	r.Get("/products", productHandler.ListProducts)
 
@@ -38,30 +42,21 @@ func (app *application) mount() http.Handler {
 
 func (app *application) run(h http.Handler) error {
 	srv := &http.Server{
-		Addr:         app.config.addr,
+		Addr:         app.config.HTTP.Addr,
 		Handler:      h,
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 10,
-		IdleTimeout:  time.Minute,
+		WriteTimeout: app.config.HTTP.Timeout,
+		ReadTimeout:  app.config.HTTP.Timeout * 2, // или можно задать явно, используем таймаут как базу
+		IdleTimeout:  app.config.HTTP.IdleTimeout,
 	}
 
-	//TODO: добавить логгер в приложение и использовать его для логирования, вместо slog.Info
-	slog.Info(fmt.Sprintf("Сервер запущен: %s", app.config.addr))
+	app.logger.Info("Сервер запущен", "addr", app.config.HTTP.Addr)
 
 	return srv.ListenAndServe()
 }
 
 type application struct {
-	config config
-	// logger
-	// db driver
+	config *config.Config
+	logger *slog.Logger
+	db     *pgx.Conn
 }
 
-type config struct {
-	addr string
-	db   dbConfig
-}
-
-type dbConfig struct {
-	dsn string
-}
