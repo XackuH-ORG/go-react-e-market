@@ -1,0 +1,22 @@
+{
+  "hooks": [
+    {
+      "event": "after_file_edit",
+      "pattern": "**/*.go",
+      "action": "shell",
+      "command": "go fmt {{file}} && goimports -w {{file}}"
+    },
+    {
+      "event": "after_file_edit",
+      "pattern": "internal/adapters/postgresql/sqlc/**/*.sql",
+      "action": "shell",
+      "command": "sqlc generate"
+    },
+    {
+      "event": "after_file_edit",
+      "pattern": "frontend/src/**/*.{ts,tsx}",
+      "action": "shell",
+      "command": "cd frontend && npx prettier --write {{file}}"
+    }
+  ]
+}
