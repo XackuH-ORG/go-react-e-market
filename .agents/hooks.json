@@ -17,6 +17,18 @@
       "pattern": "frontend/src/**/*.{ts,tsx}",
       "action": "shell",
       "command": "cd frontend && npx prettier --write {{file}}"
+    },
+    {
+      "event": "after_file_edit",
+      "pattern": "internal/**/*.go",
+      "action": "shell",
+      "command": "go test -race -v ./$(dirname {{file}}) && go vet ./..."
+    },
+    {
+      "event": "after_file_edit",
+      "pattern": "frontend/src/**/*.{ts,tsx}",
+      "action": "shell",
+      "command": "cd frontend && npx tsc --noEmit && npx vitest run --passWithNoTests"
     }
   ]
 }

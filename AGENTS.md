@@ -47,9 +47,14 @@
 ### 4. `SecurityAgent`
 **Роль**: Security Auditor / SecOps
 - **Model**: `claude-opus-4-6`
-- **Описание**: Проверка безопасности, аудит ролей (Guest, User, Admin), SQLi/XSS защита. Опирается на `security-audit`.
+- **Описание**: Точечный аудит API, проверка SQLi/XSS (Фронт+Бэк). Формирует баг-репорты для Developer/Tester в цикле до полного исправления. Использует MCP `context7` (`query-docs`) для документации по уязвимостям.
 
 ### 5. `DBAgent`
 **Роль**: Database Engineer
 - **Model**: `gemini-3-5-flash`
 - **Описание**: Проектирование схемы БД, написание raw SQL, создание миграций. Опирается на `db-migrations`.
+
+### 6. `DevOpsAgent`
+**Роль**: DevOps Engineer
+- **Model**: `gemini-3-5-flash`
+- **Описание**: Подготовка локального и production развертывания в Docker. Фокус только на инфраструктурных файлах (`Dockerfile`, `docker-compose.yml`, `nginx.conf`). Использует MCP `context7` (`query-docs`) для доков по CI/CD и Docker.

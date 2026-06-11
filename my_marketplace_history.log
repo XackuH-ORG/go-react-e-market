@@ -1,0 +1,4 @@
+I0611 20:28:07.450996 133095 server.go:1307] Starting language server process with pid 133095
+I0611 20:28:07.452145 133095 server.go:485] Language server will attempt to listen on host localhost
+I0611 20:28:07.452547 133095 server.go:499] Language server listening on random port at 43237 for HTTPS (gRPC)
+I0611 20:28:07.452656 133095 server.go:506] Language server listening on random port at 35807 for HTTP

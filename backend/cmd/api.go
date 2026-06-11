@@ -11,6 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/admin"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/cart"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/catalog"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/orders"
+	repo "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -33,6 +39,50 @@ func (app *application) mount() http.Handler {
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("all good"))
+	})
+
+	q := repo.New(app.db)
+
+	jwtSecret := []byte(os.Getenv("JWT_SECRET"))
+	if len(jwtSecret) == 0 {
+		jwtSecret = []byte("my-secret-key")
+	}
+
+	authSvc := auth.NewAuthService(q, jwtSecret)
+	authHandlers := auth.NewHandlers(authSvc)
+
+	catalogSvc := catalog.NewCatalogService(q)
+	catalogHandlers := catalog.NewHandlers(catalogSvc)
+
+	cartSvc := cart.NewCartService(q)
+	cartHandlers := cart.NewHandlers(cartSvc)
+
+	ordersSvc := orders.NewOrdersService(app.db)
+	ordersHandlers := orders.NewHandlers(ordersSvc)
+
+	adminSvc := admin.NewAdminService(app.db, q)
+	adminHandlers := admin.NewHandlers(adminSvc)
+
+	r.Route("/v1", func(r chi.Router) {
+		r.Route("/auth", func(r chi.Router) {
+			authHandlers.RegisterRoutes(r)
+		})
+		r.Route("/catalog", func(r chi.Router) {
+			catalogHandlers.RegisterRoutes(r)
+		})
+		r.Route("/cart", func(r chi.Router) {
+			cartHandlers.RegisterRoutes(r)
+		})
+		r.Route("/orders", func(r chi.Router) {
+			ordersHandlers.RegisterRoutes(r)
+		})
+		r.Route("/admin", func(r chi.Router) {
+			adminHandlers.RegisterRoutes(r)
+		})
+		// Provide direct /products for backward compatibility if needed by frontend
+		r.Route("/products", func(r chi.Router) {
+			catalogHandlers.RegisterRoutes(r)
+		})
 	})
 
 	return r

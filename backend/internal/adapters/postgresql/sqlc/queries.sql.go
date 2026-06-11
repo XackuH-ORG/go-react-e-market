@@ -109,6 +109,70 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 	return err
 }
 
+const createProduct = `-- name: CreateProduct :one
+INSERT INTO products (category_id, name, description)
+VALUES ($1, $2, $3)
+RETURNING id, category_id, name, description, deleted_at, created_at, updated_at
+`
+
+type CreateProductParams struct {
+	CategoryID  uuid.UUID   `json:"category_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+}
+
+func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error) {
+	row := q.db.QueryRow(ctx, createProduct, arg.CategoryID, arg.Name, arg.Description)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.CategoryID,
+		&i.Name,
+		&i.Description,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createSku = `-- name: CreateSku :one
+INSERT INTO skus (product_id, sku_code, attributes, price, stock)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, product_id, sku_code, attributes, price, stock, deleted_at, created_at, updated_at
+`
+
+type CreateSkuParams struct {
+	ProductID  uuid.UUID `json:"product_id"`
+	SkuCode    string    `json:"sku_code"`
+	Attributes []byte    `json:"attributes"`
+	Price      int32     `json:"price"`
+	Stock      int32     `json:"stock"`
+}
+
+func (q *Queries) CreateSku(ctx context.Context, arg CreateSkuParams) (Sku, error) {
+	row := q.db.QueryRow(ctx, createSku,
+		arg.ProductID,
+		arg.SkuCode,
+		arg.Attributes,
+		arg.Price,
+		arg.Stock,
+	)
+	var i Sku
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.SkuCode,
+		&i.Attributes,
+		&i.Price,
+		&i.Stock,
+		&i.DeletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, role)
 VALUES ($1, $2, $3)
@@ -165,6 +229,44 @@ func (q *Queries) DecrementSkuStock(ctx context.Context, arg DecrementSkuStockPa
 	return i, err
 }
 
+const getAllOrders = `-- name: GetAllOrders :many
+SELECT id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at FROM orders ORDER BY created_at DESC
+`
+
+func (q *Queries) GetAllOrders(ctx context.Context) ([]Order, error) {
+	rows, err := q.db.Query(ctx, getAllOrders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Order{}
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicNumber,
+			&i.SearchIndex,
+			&i.UserID,
+			&i.Status,
+			&i.DeliveryType,
+			&i.DeliveryAddress,
+			&i.PickupPointID,
+			&i.PromoCodeID,
+			&i.TotalAmount,
+			&i.DiscountAmount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCartItems = `-- name: GetCartItems :many
 SELECT c.quantity, s.id as sku_id, s.price, s.stock, p.name 
 FROM cart_items c
@@ -207,6 +309,138 @@ func (q *Queries) GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCart
 	return items, nil
 }
 
+const getCategories = `-- name: GetCategories :many
+SELECT id, parent_id, name, slug, created_at FROM categories ORDER BY name
+`
+
+func (q *Queries) GetCategories(ctx context.Context) ([]Category, error) {
+	rows, err := q.db.Query(ctx, getCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Category{}
+	for rows.Next() {
+		var i Category
+		if err := rows.Scan(
+			&i.ID,
+			&i.ParentID,
+			&i.Name,
+			&i.Slug,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProduct = `-- name: GetProduct :many
+SELECT 
+    p.id as product_id, p.category_id, p.name as product_name, p.description,
+    s.id as sku_id, s.sku_code, s.price, s.stock, s.attributes
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id
+WHERE p.id = $1 AND p.deleted_at IS NULL AND s.deleted_at IS NULL
+`
+
+type GetProductRow struct {
+	ProductID   uuid.UUID   `json:"product_id"`
+	CategoryID  uuid.UUID   `json:"category_id"`
+	ProductName string      `json:"product_name"`
+	Description pgtype.Text `json:"description"`
+	SkuID       pgtype.UUID `json:"sku_id"`
+	SkuCode     pgtype.Text `json:"sku_code"`
+	Price       pgtype.Int4 `json:"price"`
+	Stock       pgtype.Int4 `json:"stock"`
+	Attributes  []byte      `json:"attributes"`
+}
+
+func (q *Queries) GetProduct(ctx context.Context, id uuid.UUID) ([]GetProductRow, error) {
+	rows, err := q.db.Query(ctx, getProduct, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetProductRow{}
+	for rows.Next() {
+		var i GetProductRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.CategoryID,
+			&i.ProductName,
+			&i.Description,
+			&i.SkuID,
+			&i.SkuCode,
+			&i.Price,
+			&i.Stock,
+			&i.Attributes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProducts = `-- name: GetProducts :many
+SELECT 
+    p.id as product_id, p.category_id, p.name as product_name, p.description,
+    s.id as sku_id, s.sku_code, s.price, s.stock, s.attributes
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id
+WHERE p.deleted_at IS NULL AND s.deleted_at IS NULL
+`
+
+type GetProductsRow struct {
+	ProductID   uuid.UUID   `json:"product_id"`
+	CategoryID  uuid.UUID   `json:"category_id"`
+	ProductName string      `json:"product_name"`
+	Description pgtype.Text `json:"description"`
+	SkuID       pgtype.UUID `json:"sku_id"`
+	SkuCode     pgtype.Text `json:"sku_code"`
+	Price       pgtype.Int4 `json:"price"`
+	Stock       pgtype.Int4 `json:"stock"`
+	Attributes  []byte      `json:"attributes"`
+}
+
+func (q *Queries) GetProducts(ctx context.Context) ([]GetProductsRow, error) {
+	rows, err := q.db.Query(ctx, getProducts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetProductsRow{}
+	for rows.Next() {
+		var i GetProductsRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.CategoryID,
+			&i.ProductName,
+			&i.Description,
+			&i.SkuID,
+			&i.SkuCode,
+			&i.Price,
+			&i.Stock,
+			&i.Attributes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1 LIMIT 1
 `
@@ -223,6 +457,75 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUserOrders = `-- name: GetUserOrders :many
+SELECT id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at FROM orders WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]Order, error) {
+	rows, err := q.db.Query(ctx, getUserOrders, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Order{}
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicNumber,
+			&i.SearchIndex,
+			&i.UserID,
+			&i.Status,
+			&i.DeliveryType,
+			&i.DeliveryAddress,
+			&i.PickupPointID,
+			&i.PromoCodeID,
+			&i.TotalAmount,
+			&i.DiscountAmount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUsers = `-- name: GetUsers :many
+SELECT id, email, password_hash, role, created_at, updated_at FROM users ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUsers(ctx context.Context) ([]User, error) {
+	rows, err := q.db.Query(ctx, getUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.PasswordHash,
+			&i.Role,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const searchOrders = `-- name: SearchOrders :many
@@ -264,4 +567,96 @@ func (q *Queries) SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const softDeleteProduct = `-- name: SoftDeleteProduct :exec
+UPDATE products SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) SoftDeleteProduct(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteProduct, id)
+	return err
+}
+
+const softDeleteSku = `-- name: SoftDeleteSku :exec
+UPDATE skus SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) SoftDeleteSku(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, softDeleteSku, id)
+	return err
+}
+
+const updateOrderStatus = `-- name: UpdateOrderStatus :exec
+UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateOrderStatusParams struct {
+	Status OrderStatus `json:"status"`
+	ID     uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) error {
+	_, err := q.db.Exec(ctx, updateOrderStatus, arg.Status, arg.ID)
+	return err
+}
+
+const updateProduct = `-- name: UpdateProduct :exec
+UPDATE products SET category_id = $1, name = $2, description = $3, updated_at = NOW()
+WHERE id = $4 AND deleted_at IS NULL
+`
+
+type UpdateProductParams struct {
+	CategoryID  uuid.UUID   `json:"category_id"`
+	Name        string      `json:"name"`
+	Description pgtype.Text `json:"description"`
+	ID          uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateProduct(ctx context.Context, arg UpdateProductParams) error {
+	_, err := q.db.Exec(ctx, updateProduct,
+		arg.CategoryID,
+		arg.Name,
+		arg.Description,
+		arg.ID,
+	)
+	return err
+}
+
+const updateSku = `-- name: UpdateSku :exec
+UPDATE skus SET sku_code = $1, attributes = $2, price = $3, stock = $4, updated_at = NOW()
+WHERE id = $5 AND deleted_at IS NULL
+`
+
+type UpdateSkuParams struct {
+	SkuCode    string    `json:"sku_code"`
+	Attributes []byte    `json:"attributes"`
+	Price      int32     `json:"price"`
+	Stock      int32     `json:"stock"`
+	ID         uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateSku(ctx context.Context, arg UpdateSkuParams) error {
+	_, err := q.db.Exec(ctx, updateSku,
+		arg.SkuCode,
+		arg.Attributes,
+		arg.Price,
+		arg.Stock,
+		arg.ID,
+	)
+	return err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :exec
+UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2
+`
+
+type UpdateUserRoleParams struct {
+	Role UserRole  `json:"role"`
+	ID   uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error {
+	_, err := q.db.Exec(ctx, updateUserRole, arg.Role, arg.ID)
+	return err
 }
