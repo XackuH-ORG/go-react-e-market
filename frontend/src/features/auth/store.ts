@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Role = 'Guest' | 'User' | 'Admin';
+export type Role = 'Guest' | 'CUSTOMER' | 'ADMIN';
 
 export interface User {
   id: string;

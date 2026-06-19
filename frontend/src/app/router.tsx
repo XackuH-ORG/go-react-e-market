@@ -8,7 +8,7 @@ import { OrdersPage } from '../pages/Orders/OrdersPage';
 import { AdminPage } from '../pages/Admin/AdminPage';
 import { useAuthStore } from '../features/auth/store';
 
-function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 'Admin' }) {
+function ProtectedRoute({ children, role }: { children: React.ReactNode, role?: 'ADMIN' }) {
   const { user, isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (role && user?.role !== role) return <Navigate to="/" replace />;
@@ -33,7 +33,7 @@ const router = createBrowserRouter([
       },
       { 
         path: 'admin', 
-        element: <ProtectedRoute role="Admin"><AdminPage /></ProtectedRoute> 
+        element: <ProtectedRoute role="ADMIN"><AdminPage /></ProtectedRoute> 
       },
     ],
   },

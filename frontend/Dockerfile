@@ -12,14 +12,14 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 
 # Copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
 # Copy custom Nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

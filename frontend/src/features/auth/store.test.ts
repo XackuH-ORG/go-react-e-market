@@ -14,7 +14,7 @@ describe('Auth Store', () => {
   });
 
   it('should set user and update isAuthenticated to true', () => {
-    const mockUser: User = { id: '1', email: 'test@example.com', role: 'User' };
+    const mockUser: User = { id: '1', email: 'test@example.com', role: 'CUSTOMER' };
     
     useAuthStore.getState().setUser(mockUser);
     
@@ -24,7 +24,7 @@ describe('Auth Store', () => {
   });
 
   it('should logout by setting user to null and isAuthenticated to false', () => {
-    const mockUser: User = { id: '1', email: 'test@example.com', role: 'User' };
+    const mockUser: User = { id: '1', email: 'test@example.com', role: 'CUSTOMER' };
     useAuthStore.getState().setUser(mockUser);
     
     // Perform logout
@@ -36,7 +36,7 @@ describe('Auth Store', () => {
   });
   
   it('should handle setUser with null appropriately', () => {
-    const mockUser: User = { id: '1', email: 'test@example.com', role: 'User' };
+    const mockUser: User = { id: '1', email: 'test@example.com', role: 'CUSTOMER' };
     useAuthStore.getState().setUser(mockUser);
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
     

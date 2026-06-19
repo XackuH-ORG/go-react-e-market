@@ -7,61 +7,72 @@ export function OrdersPage() {
     queryFn: ordersApi.getOrders,
   });
 
+  const translateStatus = (status: string) => {
+    const statuses: Record<string, string> = {
+      Pending: 'В ожидании',
+      Processing: 'В обработке',
+      Shipped: 'Отправлен',
+      Delivered: 'Доставлен',
+      Cancelled: 'Отменен'
+    };
+    return statuses[status] || status;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Your Orders</h1>
+    <div className="max-w-4xl mx-auto space-y-8 text-white">
+      <h1 className="text-4xl font-extrabold tracking-tight drop-shadow-md">Ваши заказы</h1>
 
       {isLoading ? (
         <div className="animate-pulse space-y-4">
-          <div className="h-32 bg-zinc-200 rounded-xl"></div>
-          <div className="h-32 bg-zinc-200 rounded-xl"></div>
+          <div className="h-32 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20"></div>
+          <div className="h-32 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20"></div>
         </div>
       ) : !orders || orders.length === 0 ? (
-        <div className="text-center py-20 bg-white border border-zinc-200 rounded-xl">
-          <h2 className="text-xl font-medium text-zinc-900 mb-2">No orders found</h2>
-          <p className="text-zinc-500">You haven't placed any orders yet.</p>
+        <div className="text-center py-20 bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl shadow-xl">
+          <h2 className="text-2xl font-bold mb-2 drop-shadow-sm">Заказы не найдены</h2>
+          <p className="text-white/80 drop-shadow-sm">Вы еще не сделали ни одного заказа.</p>
         </div>
       ) : (
         <div className="space-y-6">
           {orders.map(order => (
-            <div key={order.id} className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="bg-zinc-50 p-5 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div key={order.id} className="bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl overflow-hidden shadow-xl">
+              <div className="bg-white/10 p-6 border-b border-white/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-1">Order ID</div>
-                  <div className="font-mono text-sm text-zinc-900">{order.id}</div>
+                  <div className="text-xs uppercase tracking-wider text-white/60 font-bold mb-1">ID Заказа</div>
+                  <div className="font-mono text-sm drop-shadow-sm">{order.id}</div>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-1">Date</div>
-                  <div className="text-sm text-zinc-900">{new Date(order.createdAt).toLocaleDateString()}</div>
+                  <div className="text-xs uppercase tracking-wider text-white/60 font-bold mb-1">Дата</div>
+                  <div className="text-sm drop-shadow-sm">{new Date(order.createdAt).toLocaleDateString('ru-RU')}</div>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-zinc-500 font-medium mb-1">Total</div>
-                  <div className="font-bold text-zinc-900">${order.total.toFixed(2)}</div>
+                  <div className="text-xs uppercase tracking-wider text-white/60 font-bold mb-1">Сумма</div>
+                  <div className="font-extrabold text-lg drop-shadow-sm">${order.total.toFixed(2)}</div>
                 </div>
                 <div>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold capitalize tracking-wide
-                    ${order.status === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                      order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 
-                      'bg-blue-100 text-blue-800'}`}>
-                    {order.status}
+                  <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm border
+                    ${order.status === 'Delivered' ? 'bg-green-500/20 text-green-100 border-green-500/30' : 
+                      order.status === 'Cancelled' ? 'bg-red-500/20 text-red-100 border-red-500/30' : 
+                      'bg-blue-500/20 text-blue-100 border-blue-500/30'}`}>
+                    {translateStatus(order.status)}
                   </span>
                 </div>
               </div>
-              <ul className="divide-y divide-zinc-100 p-2">
+              <ul className="divide-y divide-white/20 p-2">
                 {order.items?.map(item => (
-                  <li key={item.id} className="p-3 flex items-center justify-between hover:bg-zinc-50 rounded-lg transition-colors">
-                    <div className="flex items-center space-x-4">
+                  <li key={item.id} className="p-4 flex items-center justify-between hover:bg-white/10 rounded-xl transition-colors">
+                    <div className="flex items-center space-x-5">
                       {item.product?.imageUrl ? (
-                        <img src={item.product.imageUrl} alt={item.product.name} className="w-12 h-12 rounded-md object-cover border border-zinc-100" />
+                        <img src={item.product.imageUrl} alt={item.product.name} className="w-14 h-14 rounded-lg object-cover border border-white/20 shadow-sm" />
                       ) : (
-                        <div className="w-12 h-12 bg-zinc-100 rounded-md flex items-center justify-center text-[10px] text-zinc-400">No Img</div>
+                        <div className="w-14 h-14 bg-black/10 rounded-lg flex items-center justify-center text-[10px] text-white/60 shadow-inner">Нет фото</div>
                       )}
                       <div>
-                        <div className="font-medium text-zinc-900">{item.product?.name}</div>
-                        <div className="text-sm text-zinc-500">Qty: {item.quantity}</div>
+                        <div className="font-bold text-lg drop-shadow-sm">{item.product?.name}</div>
+                        <div className="text-sm text-white/80">Кол-во: <span className="font-semibold text-white">{item.quantity}</span></div>
                       </div>
                     </div>
-                    <div className="font-semibold text-zinc-900">
+                    <div className="font-extrabold text-lg drop-shadow-sm">
                       ${((item.product?.price || 0) * item.quantity).toFixed(2)}
                     </div>
                   </li>

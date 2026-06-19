@@ -22,56 +22,55 @@ describe('Layout Component', () => {
     renderLayout();
     
     expect(screen.getByText('E-Market')).toBeInTheDocument();
-    expect(screen.getByText('Login')).toBeInTheDocument();
-    expect(screen.getByText('Register')).toBeInTheDocument();
-    
-    expect(screen.queryByText('Cart')).not.toBeInTheDocument();
-    expect(screen.queryByText('Orders')).not.toBeInTheDocument();
+    expect(screen.getByText('Войти')).toBeInTheDocument();
+    expect(screen.getByText('Регистрация')).toBeInTheDocument();
+    expect(screen.queryByText('Выйти')).not.toBeInTheDocument();
+    expect(screen.queryByText('Корзина')).not.toBeInTheDocument();
     expect(screen.queryByText('Logout')).not.toBeInTheDocument();
   });
 
   it('renders user links when authenticated as User', () => {
     useAuthStore.setState({ 
-      user: { id: '1', email: 'user@test.com', role: 'User' },
+      user: { id: '1', email: 'user@test.com', role: 'CUSTOMER' },
       isAuthenticated: true 
     });
 
     renderLayout();
 
-    expect(screen.getByText('user@test.com (User)')).toBeInTheDocument();
-    expect(screen.getByText('Cart')).toBeInTheDocument();
-    expect(screen.getByText('Orders')).toBeInTheDocument();
-    expect(screen.getByText('Logout')).toBeInTheDocument();
+    expect(screen.getByText('user@test.com (Пользователь)')).toBeInTheDocument();
+    expect(screen.getByText('Корзина')).toBeInTheDocument();
+    expect(screen.getByText('Заказы')).toBeInTheDocument();
+    expect(screen.getByText('Выйти')).toBeInTheDocument();
     
-    expect(screen.queryByText('Admin')).not.toBeInTheDocument();
-    expect(screen.queryByText('Login')).not.toBeInTheDocument();
-    expect(screen.queryByText('Register')).not.toBeInTheDocument();
+    expect(screen.queryByText('Админ')).not.toBeInTheDocument();
+    expect(screen.queryByText('Войти')).not.toBeInTheDocument();
+    expect(screen.queryByText('Регистрация')).not.toBeInTheDocument();
   });
 
   it('renders Admin link when authenticated as Admin', () => {
     useAuthStore.setState({ 
-      user: { id: '2', email: 'admin@test.com', role: 'Admin' },
+      user: { id: '2', email: 'admin@test.com', role: 'ADMIN' },
       isAuthenticated: true 
     });
 
     renderLayout();
 
-    expect(screen.getByText('admin@test.com (Admin)')).toBeInTheDocument();
-    expect(screen.getByText('Admin')).toBeInTheDocument();
-    expect(screen.getByText('Cart')).toBeInTheDocument();
-    expect(screen.getByText('Orders')).toBeInTheDocument();
-    expect(screen.getByText('Logout')).toBeInTheDocument();
+    expect(screen.getByText('admin@test.com (Админ)')).toBeInTheDocument();
+    expect(screen.getByText('Админ')).toBeInTheDocument();
+    expect(screen.getByText('Корзина')).toBeInTheDocument();
+    expect(screen.getByText('Заказы')).toBeInTheDocument();
+    expect(screen.getByText('Выйти')).toBeInTheDocument();
   });
 
   it('calls logout when Logout button is clicked', () => {
     useAuthStore.setState({ 
-      user: { id: '1', email: 'user@test.com', role: 'User' },
+      user: { id: '1', email: 'user@test.com', role: 'CUSTOMER' },
       isAuthenticated: true 
     });
 
     renderLayout();
 
-    const logoutBtn = screen.getByText('Logout');
+    const logoutBtn = screen.getByText('Выйти');
     fireEvent.click(logoutBtn);
 
     // After clicking logout, store should be updated and layout should rerender

@@ -32,46 +32,46 @@ export function CartPage() {
   const total = cartItems?.reduce((acc, item) => acc + (item.product?.price || 0) * item.quantity, 0) || 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900">Shopping Cart</h1>
+    <div className="max-w-4xl mx-auto space-y-8 text-white">
+      <h1 className="text-4xl font-extrabold tracking-tight drop-shadow-md">Корзина</h1>
       
       {isLoading ? (
         <div className="animate-pulse space-y-4">
-          <div className="h-24 bg-zinc-200 rounded-lg"></div>
-          <div className="h-24 bg-zinc-200 rounded-lg"></div>
+          <div className="h-24 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20"></div>
+          <div className="h-24 bg-white/20 backdrop-blur-md rounded-2xl border border-white/20"></div>
         </div>
       ) : !cartItems || cartItems.length === 0 ? (
-        <div className="text-center py-20 bg-white border border-zinc-200 rounded-xl">
-          <h2 className="text-xl font-medium text-zinc-900 mb-2">Your cart is empty</h2>
-          <p className="text-zinc-500 mb-6">Looks like you haven't added anything yet.</p>
-          <Link to="/" className="bg-zinc-900 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-zinc-800 transition-colors">
-            Start Shopping
+        <div className="text-center py-20 bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl shadow-xl">
+          <h2 className="text-2xl font-bold mb-2 drop-shadow-sm">Ваша корзина пуста</h2>
+          <p className="text-white/80 mb-6 drop-shadow-sm">Похоже, вы еще ничего не добавили.</p>
+          <Link to="/" className="inline-block bg-white text-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-white/90 transition-all shadow-md transform hover:-translate-y-0.5">
+            Начать покупки
           </Link>
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-sm">
-            <ul className="divide-y divide-zinc-100">
+          <div className="bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl overflow-hidden shadow-xl">
+            <ul className="divide-y divide-white/20">
               {cartItems?.map(item => (
-                <li key={item.id} className="p-5 flex items-center justify-between hover:bg-zinc-50 transition-colors">
-                  <div className="flex items-center space-x-4">
+                <li key={item.id} className="p-5 flex items-center justify-between hover:bg-white/10 transition-colors">
+                  <div className="flex items-center space-x-5">
                     {item.product?.imageUrl ? (
-                      <img src={item.product.imageUrl} alt={item.product.name} className="w-20 h-20 rounded-md object-cover border border-zinc-100" />
+                      <img src={item.product.imageUrl} alt={item.product.name} className="w-24 h-24 rounded-xl object-cover border border-white/20 shadow-sm" />
                     ) : (
-                      <div className="w-20 h-20 bg-zinc-100 rounded-md flex items-center justify-center text-xs text-zinc-400">No Img</div>
+                      <div className="w-24 h-24 bg-black/10 rounded-xl flex items-center justify-center text-sm text-white/60 shadow-inner">Нет фото</div>
                     )}
                     <div>
-                      <h3 className="font-semibold text-lg text-zinc-900">{item.product?.name}</h3>
-                      <p className="text-sm text-zinc-500 mt-1">Quantity: {item.quantity}</p>
+                      <h3 className="font-bold text-xl drop-shadow-sm">{item.product?.name}</h3>
+                      <p className="text-sm text-white/80 mt-1">Количество: <span className="font-semibold text-white">{item.quantity}</span></p>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end space-y-2">
-                    <span className="font-bold text-lg text-zinc-900">${((item.product?.price || 0) * item.quantity).toFixed(2)}</span>
+                  <div className="flex flex-col items-end space-y-3">
+                    <span className="font-extrabold text-2xl drop-shadow-sm">${((item.product?.price || 0) * item.quantity).toFixed(2)}</span>
                     <button 
                       onClick={() => removeMutation.mutate(item.id)}
-                      className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors"
+                      className="text-red-300 text-sm font-bold hover:text-red-200 transition-colors drop-shadow-sm"
                     >
-                      Remove
+                      Удалить
                     </button>
                   </div>
                 </li>
@@ -79,23 +79,23 @@ export function CartPage() {
             </ul>
           </div>
           
-          <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-6 rounded-xl border border-zinc-200 shadow-sm gap-4">
-            <div className="text-xl">
-              Total: <span className="font-extrabold text-zinc-900 ml-2">${total.toFixed(2)}</span>
+          <div className="flex flex-col sm:flex-row justify-between items-center bg-white/20 backdrop-blur-lg p-6 rounded-2xl border border-white/30 shadow-xl gap-6">
+            <div className="text-2xl drop-shadow-sm">
+              Итого: <span className="font-extrabold ml-2">${total.toFixed(2)}</span>
             </div>
-            <div className="flex items-center space-x-4 w-full sm:w-auto">
+            <div className="flex items-center space-x-6 w-full sm:w-auto">
               <button 
                 onClick={() => clearMutation.mutate()}
-                className="text-zinc-600 font-medium hover:text-zinc-900 transition-colors"
+                className="text-white/80 font-bold hover:text-white transition-colors"
               >
-                Clear Cart
+                Очистить корзину
               </button>
               <button 
                 onClick={() => checkoutMutation.mutate()}
                 disabled={checkoutMutation.isPending}
-                className="flex-1 sm:flex-none bg-zinc-900 text-white px-8 py-3 rounded-lg font-bold hover:bg-zinc-800 disabled:opacity-50 shadow-sm transition-colors"
+                className="flex-1 sm:flex-none bg-white text-indigo-600 px-8 py-3 rounded-xl font-bold hover:bg-white/90 disabled:opacity-50 transition-all shadow-md transform hover:-translate-y-0.5"
               >
-                {checkoutMutation.isPending ? 'Processing...' : 'Checkout'}
+                {checkoutMutation.isPending ? 'Обработка...' : 'Оформить заказ'}
               </button>
             </div>
           </div>

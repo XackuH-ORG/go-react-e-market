@@ -24,25 +24,25 @@ export function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-sm border border-zinc-200">
-      <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-      {mutation.isError && <div className="text-red-500 mb-4 text-sm">Invalid credentials</div>}
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-w-md mx-auto mt-10 p-8 bg-white/20 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/30 text-white">
+      <h2 className="text-3xl font-bold mb-6 text-center drop-shadow-md">Вход</h2>
+      {mutation.isError && <div className="text-red-200 bg-red-500/20 px-3 py-2 rounded-lg mb-4 text-sm text-center">Неверные учетные данные</div>}
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
+          <label className="block text-sm font-medium mb-1 drop-shadow-sm">Email</label>
           <input 
             type="email" 
-            className="w-full border border-zinc-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-zinc-900 outline-none"
+            className="w-full bg-white/20 border border-white/30 rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 outline-none text-white placeholder-white/60 transition-all shadow-inner"
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
+          <label className="block text-sm font-medium mb-1 drop-shadow-sm">Пароль</label>
           <input 
             type="password" 
-            className="w-full border border-zinc-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-zinc-900 outline-none"
+            className="w-full bg-white/20 border border-white/30 rounded-xl px-4 py-3 focus:ring-2 focus:ring-white/50 outline-none text-white placeholder-white/60 transition-all shadow-inner"
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
@@ -51,13 +51,13 @@ export function LoginPage() {
         <button 
           type="submit" 
           disabled={mutation.isPending}
-          className="w-full bg-zinc-900 text-white rounded-md py-2 font-medium hover:bg-zinc-800 disabled:opacity-50 transition-colors"
+          className="w-full bg-white text-indigo-600 rounded-xl py-3 font-bold hover:bg-white/90 disabled:opacity-50 transition-all shadow-md transform hover:-translate-y-0.5"
         >
-          {mutation.isPending ? 'Logging in...' : 'Login'}
+          {mutation.isPending ? 'Вход...' : 'Войти'}
         </button>
       </form>
-      <div className="mt-4 text-center text-sm text-zinc-600">
-        Don't have an account? <Link to="/register" className="text-zinc-900 font-medium hover:underline">Register</Link>
+      <div className="mt-6 text-center text-sm text-white/80">
+        Нет аккаунта? <Link to="/register" className="text-white font-bold hover:underline drop-shadow-md">Регистрация</Link>
       </div>
     </div>
   );

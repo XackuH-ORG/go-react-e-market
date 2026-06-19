@@ -1,0 +1,3 @@
+{"email":"testuser1781293812@example.com","id":"9eac78d3-83b0-4390-a990-69e106a279bc","role":"CUSTOMER"}
+
+HTTP_STATUS:201

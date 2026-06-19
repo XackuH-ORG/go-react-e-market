@@ -19,14 +19,14 @@ import (
 
 type mockAuthService struct {
 	registerFunc func(ctx context.Context, email, password string) (*repo.User, error)
-	loginFunc    func(ctx context.Context, email, password string) (string, error)
+	loginFunc    func(ctx context.Context, email, password string) (*repo.User, string, error)
 }
 
 func (m *mockAuthService) Register(ctx context.Context, email, password string) (*repo.User, error) {
 	return m.registerFunc(ctx, email, password)
 }
 
-func (m *mockAuthService) Login(ctx context.Context, email, password string) (string, error) {
+func (m *mockAuthService) Login(ctx context.Context, email, password string) (*repo.User, string, error) {
 	return m.loginFunc(ctx, email, password)
 }
 
@@ -52,9 +52,11 @@ func TestHandlers_Register(t *testing.T) {
 			},
 			expectedStatus: http.StatusCreated,
 			expectedBody: map[string]interface{}{
-				"id":    "00000000-0000-0000-0000-000000000001",
-				"email": "test@example.com",
-				"role":  string(repo.UserRoleCUSTOMER),
+				"user": map[string]interface{}{
+					"id":    "00000000-0000-0000-0000-000000000001",
+					"email": "test@example.com",
+					"role":  string(repo.UserRoleCUSTOMER),
+				},
 			},
 		},
 		{
@@ -93,7 +95,7 @@ func TestHandlers_Register(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			h := auth.NewHandlers(tc.mockService)
+			h := auth.NewHandlers(tc.mockService, []byte("secret"))
 
 			var buf bytes.Buffer
 			if str, ok := tc.body.(string); ok {
@@ -131,8 +133,12 @@ func TestHandlers_Login(t *testing.T) {
 			name: "Success",
 			body: auth.LoginRequest{Email: "test@example.com", Password: "pass"},
 			mockService: &mockAuthService{
-				loginFunc: func(ctx context.Context, email, password string) (string, error) {
-					return "valid-token", nil
+				loginFunc: func(ctx context.Context, email, password string) (*repo.User, string, error) {
+					return &repo.User{
+						ID:    uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+						Email: email,
+						Role:  repo.UserRoleCUSTOMER,
+					}, "valid-token", nil
 				},
 			},
 			expectedStatus: http.StatusOK,
@@ -154,8 +160,8 @@ func TestHandlers_Login(t *testing.T) {
 			name: "Invalid Credentials",
 			body: auth.LoginRequest{Email: "test@example.com", Password: "wrong"},
 			mockService: &mockAuthService{
-				loginFunc: func(ctx context.Context, email, password string) (string, error) {
-					return "", auth.ErrInvalidCredentials
+				loginFunc: func(ctx context.Context, email, password string) (*repo.User, string, error) {
+					return nil, "", auth.ErrInvalidCredentials
 				},
 			},
 			expectedStatus: http.StatusUnauthorized,
@@ -164,8 +170,8 @@ func TestHandlers_Login(t *testing.T) {
 			name: "Internal Error",
 			body: auth.LoginRequest{Email: "test@example.com", Password: "pass"},
 			mockService: &mockAuthService{
-				loginFunc: func(ctx context.Context, email, password string) (string, error) {
-					return "", errors.New("some error")
+				loginFunc: func(ctx context.Context, email, password string) (*repo.User, string, error) {
+					return nil, "", errors.New("some error")
 				},
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -174,7 +180,7 @@ func TestHandlers_Login(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			h := auth.NewHandlers(tc.mockService)
+			h := auth.NewHandlers(tc.mockService, []byte("secret"))
 
 			var buf bytes.Buffer
 			if str, ok := tc.body.(string); ok {

@@ -20,6 +20,7 @@ import (
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -31,6 +32,27 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.ClientIPFromRemoteAddr) // важно для ограничения скорости, аналитики и отслеживания
 	r.Use(middleware.Logger)                 // для логирования запросов, может быть отключен в продакшене
 	r.Use(middleware.Recoverer)              // для восстановления после сбоев, может быть отключен в продакшене
+
+	// CORS configuration
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"}, // In production, replace with specific origins
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
+
+	// Security Headers Middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-XSS-Protection", "1; mode=block")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// Установка таймаута для контекста запроса (ctx), который сигнализирует
 	// через ctx.Done() об истечении времени и требует остановки
@@ -49,7 +71,7 @@ func (app *application) mount() http.Handler {
 	}
 
 	authSvc := auth.NewAuthService(q, jwtSecret)
-	authHandlers := auth.NewHandlers(authSvc)
+	authHandlers := auth.NewHandlers(authSvc, jwtSecret)
 
 	catalogSvc := catalog.NewCatalogService(q)
 	catalogHandlers := catalog.NewHandlers(catalogSvc)
@@ -67,9 +89,9 @@ func (app *application) mount() http.Handler {
 		r.Route("/auth", func(r chi.Router) {
 			authHandlers.RegisterRoutes(r)
 		})
-		r.Route("/catalog", func(r chi.Router) {
-			catalogHandlers.RegisterRoutes(r)
-		})
+		// Catalog routes register their own /products and /categories prefixes
+		catalogHandlers.RegisterRoutes(r)
+
 		r.Route("/cart", func(r chi.Router) {
 			cartHandlers.RegisterRoutes(r)
 		})
@@ -78,10 +100,6 @@ func (app *application) mount() http.Handler {
 		})
 		r.Route("/admin", func(r chi.Router) {
 			adminHandlers.RegisterRoutes(r)
-		})
-		// Provide direct /products for backward compatibility if needed by frontend
-		r.Route("/products", func(r chi.Router) {
-			catalogHandlers.RegisterRoutes(r)
 		})
 	})
 

@@ -18,7 +18,7 @@ var (
 
 type AuthService interface {
 	Register(ctx context.Context, email, password string) (*repo.User, error)
-	Login(ctx context.Context, email, password string) (string, error)
+	Login(ctx context.Context, email, password string) (*repo.User, string, error)
 }
 
 type authService struct {
@@ -57,27 +57,28 @@ func (s *authService) Register(ctx context.Context, email, password string) (*re
 	return &user, nil
 }
 
-func (s *authService) Login(ctx context.Context, email, password string) (string, error) {
+func (s *authService) Login(ctx context.Context, email, password string) (*repo.User, string, error) {
 	user, err := s.q.GetUserByEmail(ctx, email)
 	if err != nil {
 		// Either user not found or DB error, treat as invalid credentials
-		return "", ErrInvalidCredentials
+		return nil, "", ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", ErrInvalidCredentials
+		return nil, "", ErrInvalidCredentials
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID.String(),
+		"email":   user.Email,
 		"role":    user.Role,
 		"exp":     time.Now().Add(72 * time.Hour).Unix(),
 	})
 
 	tokenString, err := token.SignedString(s.jwtSecret)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	return tokenString, nil
+	return &user, tokenString, nil
 }

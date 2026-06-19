@@ -109,7 +109,7 @@ func TestAuthService_Login(t *testing.T) {
 		name          string
 		setupMock     func()
 		expectedError error
-		checkResult   func(t *testing.T, token string, err error)
+		checkResult   func(t *testing.T, user *repo.User, token string, err error)
 	}{
 		{
 			name: "Success",
@@ -122,8 +122,9 @@ func TestAuthService_Login(t *testing.T) {
 					Role:         "User", // we just provide whatever string
 				}, nil)
 			},
-			checkResult: func(t *testing.T, token string, err error) {
+			checkResult: func(t *testing.T, user *repo.User, token string, err error) {
 				require.NoError(t, err)
+				require.NotNil(t, user)
 				require.NotEmpty(t, token)
 			},
 		},
@@ -132,9 +133,10 @@ func TestAuthService_Login(t *testing.T) {
 			setupMock: func() {
 				mockQuerier.EXPECT().GetUserByEmail(gomock.Any(), email).Return(repo.User{}, sql.ErrNoRows)
 			},
-			checkResult: func(t *testing.T, token string, err error) {
+			checkResult: func(t *testing.T, user *repo.User, token string, err error) {
 				require.ErrorIs(t, err, auth.ErrInvalidCredentials)
 				require.Empty(t, token)
+				require.Nil(t, user)
 			},
 		},
 		{
@@ -148,9 +150,10 @@ func TestAuthService_Login(t *testing.T) {
 					Role:         "User",
 				}, nil)
 			},
-			checkResult: func(t *testing.T, token string, err error) {
+			checkResult: func(t *testing.T, user *repo.User, token string, err error) {
 				require.ErrorIs(t, err, auth.ErrInvalidCredentials)
 				require.Empty(t, token)
+				require.Nil(t, user)
 			},
 		},
 	}
@@ -158,8 +161,8 @@ func TestAuthService_Login(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setupMock()
-			token, err := service.Login(context.Background(), email, password)
-			tc.checkResult(t, token, err)
+			user, token, err := service.Login(context.Background(), email, password)
+			tc.checkResult(t, user, token, err)
 		})
 	}
 }
