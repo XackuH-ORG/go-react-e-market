@@ -16,16 +16,25 @@ type Querier interface {
 	ClearCart(ctx context.Context, userID uuid.UUID) error
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) error
+	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateSku(ctx context.Context, arg CreateSkuParams) (Sku, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Атомарное списание остатков. Если вернет sql.ErrNoRows - значит товара не хватает (Race Condition предотвращен)
 	DecrementSkuStock(ctx context.Context, arg DecrementSkuStockParams) (Sku, error)
+	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCartItemsRow, error)
+	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
 	GetSessionByToken(ctx context.Context, token string) (GetSessionByTokenRow, error)
+	GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]Sku, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
+	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	// Быстрый поиск по последним 4 символам публичного номера
 	SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]Order, error)
+	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error)
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
+	UpdateProductImage(ctx context.Context, arg UpdateProductImageParams) (Product, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (UpdateUserRoleRow, error)
 }
 
