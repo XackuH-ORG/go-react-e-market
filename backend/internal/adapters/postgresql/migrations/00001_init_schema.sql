@@ -60,12 +60,13 @@ CREATE TABLE skus (
 );
 
 CREATE TABLE cart_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     sku_id UUID NOT NULL REFERENCES skus(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (user_id, sku_id)
+    UNIQUE (user_id, sku_id)
 );
 
 CREATE TABLE pickup_points (

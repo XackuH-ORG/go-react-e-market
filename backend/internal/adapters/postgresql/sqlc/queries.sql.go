@@ -7,16 +7,18 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addToCart = `-- name: AddToCart :exec
+const addToCart = `-- name: AddToCart :one
 INSERT INTO cart_items (user_id, sku_id, quantity)
 VALUES ($1, $2, $3)
 ON CONFLICT (user_id, sku_id) 
 DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, updated_at = NOW()
+RETURNING id, user_id, sku_id, quantity, created_at, updated_at
 `
 
 type AddToCartParams struct {
@@ -25,9 +27,18 @@ type AddToCartParams struct {
 	Quantity int32     `json:"quantity"`
 }
 
-func (q *Queries) AddToCart(ctx context.Context, arg AddToCartParams) error {
-	_, err := q.db.Exec(ctx, addToCart, arg.UserID, arg.SkuID, arg.Quantity)
-	return err
+func (q *Queries) AddToCart(ctx context.Context, arg AddToCartParams) (CartItem, error) {
+	row := q.db.QueryRow(ctx, addToCart, arg.UserID, arg.SkuID, arg.Quantity)
+	var i CartItem
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SkuID,
+		&i.Quantity,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const clearCart = `-- name: ClearCart :exec
@@ -107,6 +118,31 @@ func (q *Queries) CreateOrderItem(ctx context.Context, arg CreateOrderItemParams
 		arg.PriceAtPurchase,
 	)
 	return err
+}
+
+const createSession = `-- name: CreateSession :one
+INSERT INTO sessions (user_id, token, expires_at)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, token, expires_at, created_at
+`
+
+type CreateSessionParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
+	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.Token, arg.ExpiresAt)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const createUser = `-- name: CreateUser :one
@@ -207,6 +243,37 @@ func (q *Queries) GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCart
 	return items, nil
 }
 
+const getSessionByToken = `-- name: GetSessionByToken :one
+SELECT s.id, s.user_id, s.token, s.expires_at, s.created_at, u.role
+FROM sessions s
+JOIN users u ON s.user_id = u.id
+WHERE s.token = $1 AND s.expires_at > NOW()
+LIMIT 1
+`
+
+type GetSessionByTokenRow struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	CreatedAt time.Time `json:"created_at"`
+	Role      UserRole  `json:"role"`
+}
+
+func (q *Queries) GetSessionByToken(ctx context.Context, token string) (GetSessionByTokenRow, error) {
+	row := q.db.QueryRow(ctx, getSessionByToken, token)
+	var i GetSessionByTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.Role,
+	)
+	return i, err
+}
+
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1 LIMIT 1
 `
@@ -223,6 +290,51 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUsers = `-- name: GetUsers :many
+SELECT id, email, role, created_at
+FROM users
+WHERE deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type GetUsersParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type GetUsersRow struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Role      UserRole  `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (q *Queries) GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error) {
+	rows, err := q.db.Query(ctx, getUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetUsersRow{}
+	for rows.Next() {
+		var i GetUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Role,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const searchOrders = `-- name: SearchOrders :many
@@ -264,4 +376,35 @@ func (q *Queries) SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE users
+SET role = $2, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, email, role, updated_at
+`
+
+type UpdateUserRoleParams struct {
+	ID   uuid.UUID `json:"id"`
+	Role UserRole  `json:"role"`
+}
+
+type UpdateUserRoleRow struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	Role      UserRole  `json:"role"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (UpdateUserRoleRow, error) {
+	row := q.db.QueryRow(ctx, updateUserRole, arg.ID, arg.Role)
+	var i UpdateUserRoleRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Role,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

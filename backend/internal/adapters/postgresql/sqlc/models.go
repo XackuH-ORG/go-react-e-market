@@ -230,6 +230,7 @@ func (ns NullUserRole) Value() (driver.Value, error) {
 }
 
 type CartItem struct {
+	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
 	SkuID     uuid.UUID `json:"sku_id"`
 	Quantity  int32     `json:"quantity"`

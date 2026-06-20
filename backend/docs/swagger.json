@@ -1,0 +1,49 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API-сервер для интернет-магазина Go-React E-Market.",
+        "title": "Go-React E-Market API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "email": "support@example.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Возвращает статус работоспособности сервера бэкенда",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "system"
+                ],
+                "summary": "Проверка здоровья API",
+                "responses": {
+                    "200": {
+                        "description": "all good",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "description": "Введите \"Bearer \" и затем JWT токен в поле ввода.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

@@ -23,6 +23,8 @@ type HTTPConfig struct {
 	WriteTimeout time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"4s"`
 	IdleTimeout  time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
 	ReqTimeout   time.Duration `yaml:"req_timeout" env:"HTTP_REQ_TIMEOUT" env-default:"60s"`
+	User         string        `yaml:"user" env-required:"true"`
+	Password     string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
 }
 
 type DBConfig struct {

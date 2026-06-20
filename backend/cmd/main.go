@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// @title           Go-React E-Market API
+// @version         1.0
+// @description     API-сервер для интернет-магазина Go-React E-Market.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.email  support@example.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8082
+// @BasePath  /
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Введите "Bearer " и затем JWT токен в поле ввода.
 func main() {
 	ctx := context.Background()
 

@@ -11,16 +11,22 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/XackuH-ORG/go-react-e-market/backend/docs"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
+	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
 )
 
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
-	// A good base middleware stack
 	r.Use(middleware.RequestID)              // важно для ограничения скорости запросов
 	r.Use(middleware.ClientIPFromRemoteAddr) // важно для ограничения скорости, аналитики и отслеживания
 	r.Use(middleware.Logger)                 // для логирования запросов, может быть отключен в продакшене
@@ -31,11 +37,59 @@ func (app *application) mount() http.Handler {
 	// дальнейшей обработки запроса.
 	r.Use(middleware.Timeout(app.config.HTTP.ReqTimeout))
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("all good"))
+	r.Get("/health", app.health)
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
+	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
+	})
+
+	// Инициализация сервисов и хендлеров
+	queries := database.New(app.db)
+	authService := auth.NewService(queries)
+	authHandler := auth.NewHandler(authService)
+	authMw := appMiddleware.NewAuthMiddleware(queries)
+
+	usersService := users.NewService(queries)
+	usersHandler := users.NewHandler(usersService)
+
+	r.Route("/api/v1/auth", func(r chi.Router) {
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+	})
+
+	// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
+	r.Group(func(r chi.Router) {
+		r.Use(authMw.RequireAuth)
+
+		// TODO: r.Get("/api/v1/cart", cartHandler.GetCart) <-- Добавим позже
+	})
+
+	// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
+	r.Group(func(r chi.Router) {
+		r.Use(authMw.RequireAuth)
+		r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+
+		r.Get("/api/v1/admin/users", usersHandler.GetUsers)
+		r.Patch("/api/v1/admin/users/{id}/role", usersHandler.UpdateRole)
+
+		// TODO: r.Post("/api/v1/admin/products", productHandler.Create) <-- Добавим позже
 	})
 
 	return r
+}
+
+// health godoc
+// @Summary      Проверка здоровья API
+// @Description  Возвращает статус работоспособности сервера бэкенда
+// @Tags         system
+// @Produce      plain
+// @Success      200  {string}  string  "all good"
+// @Router       /health [get]
+func (app *application) health(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("all good"))
 }
 
 func (app *application) run(h http.Handler) error {
@@ -66,7 +120,7 @@ func (app *application) run(h http.Handler) error {
 
 		app.logger.Info("completing background tasks")
 		// Здесь можно было бы ждать завершения фоновых задач (WaitGroups и т.д.)
-		
+
 		shutdownError <- nil
 	}()
 
