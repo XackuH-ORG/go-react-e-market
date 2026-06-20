@@ -21,6 +21,7 @@ import (
 	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
 	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
 )
 
@@ -55,10 +56,17 @@ func (app *application) mount() http.Handler {
 	usersService := users.NewService(queries)
 	usersHandler := users.NewHandler(usersService)
 
+	productsService := products.NewService(queries)
+	productsHandler := products.NewHandler(productsService)
+
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
 	})
+
+	// Публичные роуты продуктов
+	r.Get("/api/v1/products", productsHandler.ListProducts)
+	r.Get("/api/v1/products/{id}", productsHandler.GetProduct)
 
 	// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
 	r.Group(func(r chi.Router) {
@@ -75,7 +83,12 @@ func (app *application) mount() http.Handler {
 		r.Get("/api/v1/admin/users", usersHandler.GetUsers)
 		r.Patch("/api/v1/admin/users/{id}/role", usersHandler.UpdateRole)
 
-		// TODO: r.Post("/api/v1/admin/products", productHandler.Create) <-- Добавим позже
+		r.Post("/api/v1/admin/products", productsHandler.CreateProduct)
+		r.Put("/api/v1/admin/products/{id}", productsHandler.UpdateProduct)
+		r.Delete("/api/v1/admin/products/{id}", productsHandler.DeleteProduct)
+		r.Post("/api/v1/admin/products/{id}/image", productsHandler.UploadImage)
+		
+		r.Post("/api/v1/admin/skus", productsHandler.CreateSku)
 	})
 
 	return r

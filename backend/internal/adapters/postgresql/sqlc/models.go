@@ -288,6 +288,7 @@ type Product struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+	ImageUrl    pgtype.Text        `json:"image_url"`
 }
 
 type PromoCode struct {

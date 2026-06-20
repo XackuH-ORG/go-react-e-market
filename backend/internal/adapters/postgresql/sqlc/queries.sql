@@ -72,3 +72,57 @@ UPDATE users
 SET role = $2, updated_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, email, role, updated_at;
+
+-- name: CreateProduct :one
+INSERT INTO products (name, description, image_url)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: CreateSku :one
+INSERT INTO skus (product_id, sku_code, price, stock)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: ListProducts :many
+SELECT * FROM products
+WHERE deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: GetProductByID :one
+SELECT * FROM products
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: GetSkusByProductID :many
+SELECT * FROM skus
+WHERE product_id = $1 AND deleted_at IS NULL;
+-- name: UpdateProduct :one
+UPDATE products
+SET name = COALESCE(NULLIF($2, ''), name),
+    description = COALESCE(NULLIF($3, ''), description),
+    updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: DeleteProduct :exec
+UPDATE products
+SET deleted_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: UpdateProductImage :one
+UPDATE products
+SET image_url = $2, updated_at = NOW()
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: SearchProducts :many
+SELECT DISTINCT p.* 
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id AND s.deleted_at IS NULL
+WHERE p.deleted_at IS NULL
+  AND (@search_query::text = '' OR p.name ILIKE '%' || @search_query || '%')
+  AND (@min_price::int = 0 OR s.price >= @min_price)
+  AND (@max_price::int = 0 OR s.price <= @max_price)
+  AND (@in_stock::boolean = false OR s.stock > 0)
+ORDER BY p.created_at DESC
+LIMIT sqlc.arg('limit_val')::int OFFSET sqlc.arg('offset_val')::int;
