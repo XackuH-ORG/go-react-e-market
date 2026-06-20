@@ -1,0 +1,14 @@
+env: "local"
+
+http:
+  addr: "localhost:8082"
+  read_timeout: "4s"
+  write_timeout: "4s"
+  idle_timeout: "60s"
+  req_timeout: "60s"
+  user: "admin"
+  password: "123"
+
+db:
+  dsn: "host=localhost user=postgres password=admin dbname=emarket sslmode=disable"
+  driver: "postgres"

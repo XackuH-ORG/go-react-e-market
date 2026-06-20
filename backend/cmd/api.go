@@ -1,20 +1,32 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
+
+	"context"
+	"errors"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
+	_ "github.com/XackuH-ORG/go-react-e-market/backend/docs"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
+	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
 )
 
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
 
-	// A good base middleware stack
 	r.Use(middleware.RequestID)              // важно для ограничения скорости запросов
 	r.Use(middleware.ClientIPFromRemoteAddr) // важно для ограничения скорости, аналитики и отслеживания
 	r.Use(middleware.Logger)                 // для логирования запросов, может быть отключен в продакшене
@@ -23,45 +35,113 @@ func (app *application) mount() http.Handler {
 	// Установка таймаута для контекста запроса (ctx), который сигнализирует
 	// через ctx.Done() об истечении времени и требует остановки
 	// дальнейшей обработки запроса.
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(app.config.HTTP.ReqTimeout))
 
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("all good"))
+	r.Get("/health", app.health)
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
+	r.Get("/swagger", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/swagger/index.html", http.StatusMovedPermanently)
 	})
 
-	productService := products.NewService()
-	productHandler := products.NewHandler(productService)
-	r.Get("/products", productHandler.ListProducts)
+	// Инициализация сервисов и хендлеров
+	queries := database.New(app.db)
+	authService := auth.NewService(queries)
+	authHandler := auth.NewHandler(authService)
+	authMw := appMiddleware.NewAuthMiddleware(queries)
+
+	usersService := users.NewService(queries)
+	usersHandler := users.NewHandler(usersService)
+
+	r.Route("/api/v1/auth", func(r chi.Router) {
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+	})
+
+	// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
+	r.Group(func(r chi.Router) {
+		r.Use(authMw.RequireAuth)
+
+		// TODO: r.Get("/api/v1/cart", cartHandler.GetCart) <-- Добавим позже
+	})
+
+	// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
+	r.Group(func(r chi.Router) {
+		r.Use(authMw.RequireAuth)
+		r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+
+		r.Get("/api/v1/admin/users", usersHandler.GetUsers)
+		r.Patch("/api/v1/admin/users/{id}/role", usersHandler.UpdateRole)
+
+		// TODO: r.Post("/api/v1/admin/products", productHandler.Create) <-- Добавим позже
+	})
 
 	return r
 }
 
+// health godoc
+// @Summary      Проверка здоровья API
+// @Description  Возвращает статус работоспособности сервера бэкенда
+// @Tags         system
+// @Produce      plain
+// @Success      200  {string}  string  "all good"
+// @Router       /health [get]
+func (app *application) health(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("all good"))
+}
+
 func (app *application) run(h http.Handler) error {
 	srv := &http.Server{
-		Addr:         app.config.addr,
+		Addr:         app.config.HTTP.Addr,
 		Handler:      h,
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 10,
-		IdleTimeout:  time.Minute,
+		WriteTimeout: app.config.HTTP.WriteTimeout,
+		ReadTimeout:  app.config.HTTP.ReadTimeout,
+		IdleTimeout:  app.config.HTTP.IdleTimeout,
 	}
 
-	//TODO: добавить логгер в приложение и использовать его для логирования, вместо slog.Info
-	slog.Info(fmt.Sprintf("Сервер запущен: %s", app.config.addr))
+	shutdownError := make(chan error)
 
-	return srv.ListenAndServe()
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+
+		app.logger.Info("shutting down server", "signal", s.String())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			shutdownError <- err
+		}
+
+		app.logger.Info("completing background tasks")
+		// Здесь можно было бы ждать завершения фоновых задач (WaitGroups и т.д.)
+
+		shutdownError <- nil
+	}()
+
+	app.logger.Info("Сервер запущен", "addr", app.config.HTTP.Addr)
+
+	err := srv.ListenAndServe()
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	err = <-shutdownError
+	if err != nil {
+		return err
+	}
+
+	app.logger.Info("Сервер успешно остановлен")
+	return nil
 }
 
 type application struct {
-	config config
-	// logger
-	// db driver
-}
-
-type config struct {
-	addr string
-	db   dbConfig
-}
-
-type dbConfig struct {
-	dsn string
+	config *config.Config
+	logger *slog.Logger
+	db     *pgxpool.Pool
 }

@@ -12,17 +12,21 @@ import (
 )
 
 type Querier interface {
-	AddToCart(ctx context.Context, arg AddToCartParams) error
+	AddToCart(ctx context.Context, arg AddToCartParams) (CartItem, error)
 	ClearCart(ctx context.Context, userID uuid.UUID) error
 	CreateOrder(ctx context.Context, arg CreateOrderParams) (Order, error)
 	CreateOrderItem(ctx context.Context, arg CreateOrderItemParams) error
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// Атомарное списание остатков. Если вернет sql.ErrNoRows - значит товара не хватает (Race Condition предотвращен)
 	DecrementSkuStock(ctx context.Context, arg DecrementSkuStockParams) (Sku, error)
 	GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCartItemsRow, error)
+	GetSessionByToken(ctx context.Context, token string) (GetSessionByTokenRow, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	// Быстрый поиск по последним 4 символам публичного номера
 	SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]Order, error)
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (UpdateUserRoleRow, error)
 }
 
 var _ Querier = (*Queries)(nil)
