@@ -221,7 +221,7 @@ func (h *handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// 12-factor: Путь для загрузки должен приходить из ENV, но для MVP берем локальную папку
+	// Путь для загрузки должен приходить из ENV, но для MVP берем локальную папку
 	uploadDir := os.Getenv("UPLOAD_DIR")
 	if uploadDir == "" {
 		uploadDir = "./uploads"
