@@ -89,13 +89,13 @@ WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
--- name: GetProductByID :one
-SELECT * FROM products
-WHERE id = $1 AND deleted_at IS NULL;
-
--- name: GetSkusByProductID :many
-SELECT * FROM skus
-WHERE product_id = $1 AND deleted_at IS NULL;
+-- name: GetProductWithSkus :many
+SELECT 
+    p.id AS p_id, p.name AS p_name, p.description AS p_description, p.image_url AS p_image_url, p.created_at AS p_created_at, p.updated_at AS p_updated_at,
+    s.id AS s_id, s.sku_code, s.price, s.stock, s.created_at AS s_created_at, s.updated_at AS s_updated_at
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id AND s.deleted_at IS NULL
+WHERE p.id = $1 AND p.deleted_at IS NULL;
 -- name: UpdateProduct :one
 UPDATE products
 SET name = COALESCE(NULLIF($2, ''), name),

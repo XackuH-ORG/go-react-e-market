@@ -24,9 +24,8 @@ type Querier interface {
 	DecrementSkuStock(ctx context.Context, arg DecrementSkuStockParams) (Sku, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCartItemsRow, error)
-	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
+	GetProductWithSkus(ctx context.Context, id uuid.UUID) ([]GetProductWithSkusRow, error)
 	GetSessionByToken(ctx context.Context, token string) (GetSessionByTokenRow, error)
-	GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]Sku, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
