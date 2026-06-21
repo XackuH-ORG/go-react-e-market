@@ -32,7 +32,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// NOTE: Загрузка конфигурации (YAML + Env)
+	// NOTE: Загрузка конфигурации
 	cfg := config.MustLoad()
 
 	// NOTE: Настройка логгера
