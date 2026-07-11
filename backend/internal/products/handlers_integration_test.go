@@ -22,10 +22,10 @@ import (
 func setupTestRouter(t *testing.T) (*chi.Mux, repo.Querier) {
 	pool := testutil.SetupTestDB(t)
 	db := repo.New(pool)
-	
+
 	svc := products.NewService(db)
 	h := products.NewHandler(svc)
-	
+
 	r := chi.NewRouter()
 	r.Post("/api/v1/admin/products", h.CreateProduct)
 	r.Post("/api/v1/admin/skus", h.CreateSku)
@@ -64,7 +64,7 @@ func TestIntegration_ProductHandlers(t *testing.T) {
 		assert.Equal(t, reqBody.Name, resp.Name)
 		assert.Equal(t, reqBody.Description, resp.Description.String)
 		assert.Equal(t, reqBody.ImageURL, resp.ImageUrl.String)
-		
+
 		createdProductID = resp.ID
 	})
 
@@ -140,7 +140,7 @@ func TestIntegration_ProductHandlers(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotEmpty(t, resp)
-		
+
 		found := false
 		for _, p := range resp {
 			if p.ID == createdProductID {

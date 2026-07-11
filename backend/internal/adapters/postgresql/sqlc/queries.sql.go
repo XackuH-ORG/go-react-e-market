@@ -423,6 +423,46 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	return i, err
 }
 
+const getUserOrders = `-- name: GetUserOrders :many
+SELECT id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at FROM orders 
+WHERE user_id = $1 
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]Order, error) {
+	rows, err := q.db.Query(ctx, getUserOrders, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Order{}
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicNumber,
+			&i.SearchIndex,
+			&i.UserID,
+			&i.Status,
+			&i.DeliveryType,
+			&i.DeliveryAddress,
+			&i.PickupPointID,
+			&i.PromoCodeID,
+			&i.TotalAmount,
+			&i.DiscountAmount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsers = `-- name: GetUsers :many
 SELECT id, email, role, created_at
 FROM users
@@ -620,6 +660,39 @@ func (q *Queries) SearchProducts(ctx context.Context, arg SearchProductsParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateOrderStatus = `-- name: UpdateOrderStatus :one
+UPDATE orders
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at
+`
+
+type UpdateOrderStatusParams struct {
+	ID     uuid.UUID   `json:"id"`
+	Status OrderStatus `json:"status"`
+}
+
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error) {
+	row := q.db.QueryRow(ctx, updateOrderStatus, arg.ID, arg.Status)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.PublicNumber,
+		&i.SearchIndex,
+		&i.UserID,
+		&i.Status,
+		&i.DeliveryType,
+		&i.DeliveryAddress,
+		&i.PickupPointID,
+		&i.PromoCodeID,
+		&i.TotalAmount,
+		&i.DiscountAmount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateProduct = `-- name: UpdateProduct :one

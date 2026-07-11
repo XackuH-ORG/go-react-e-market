@@ -11,7 +11,7 @@ import (
 )
 
 type Config struct {
-	Env  string     `env:"ENV" env-default:"dev"`
+	Env  string `env:"ENV" env-default:"dev"`
 	HTTP HTTPConfig
 	DB   DBConfig
 	JWT  JWTConfig

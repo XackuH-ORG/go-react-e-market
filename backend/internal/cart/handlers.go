@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
-	"github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/lib/logger/sl"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"log/slog"

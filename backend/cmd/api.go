@@ -23,6 +23,7 @@ import (
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/cart"
 	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/orders"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
 )
@@ -73,39 +74,47 @@ func (app *application) mount() http.Handler {
 	cartService := cart.NewService(queries)
 	cartHandler := cart.NewHandler(cartService)
 
-	r.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/register", authHandler.Register)
-		r.Post("/login", authHandler.Login)
-	})
+	orderService := orders.NewService(app.db)
+	orderHandler := orders.NewHandler(orderService)
 
-	// Публичные роуты продуктов
-	r.Get("/api/v1/products", productsHandler.ListProducts)
-	r.Get("/api/v1/products/{id}", productsHandler.GetProduct)
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
 
-	// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
-	r.Group(func(r chi.Router) {
-		r.Use(authMw.RequireAuth)
+		r.Get("/products", productsHandler.ListProducts)
+		r.Get("/products/{id}", productsHandler.GetProduct)
 
-		r.Post("/api/v1/cart", cartHandler.AddToCart)
-		r.Get("/api/v1/cart", cartHandler.GetCart)
-		r.Delete("/api/v1/cart/{sku_id}", cartHandler.RemoveFromCart)
-		r.Delete("/api/v1/cart", cartHandler.ClearCart)
-	})
+		// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
+		r.Group(func(r chi.Router) {
+			r.Use(authMw.RequireAuth)
 
-	// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
-	r.Group(func(r chi.Router) {
-		r.Use(authMw.RequireAuth)
-		r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+			r.Post("/cart", cartHandler.AddToCart)
+			r.Get("/cart", cartHandler.GetCart)
+			r.Delete("/cart/{sku_id}", cartHandler.RemoveFromCart)
+			r.Delete("/cart", cartHandler.ClearCart)
 
-		r.Get("/api/v1/admin/users", usersHandler.GetUsers)
-		r.Patch("/api/v1/admin/users/{id}/role", usersHandler.UpdateRole)
+			r.Post("/orders", orderHandler.CreateOrder)
+			r.Get("/orders", orderHandler.GetOrders)
+		})
 
-		r.Post("/api/v1/admin/products", productsHandler.CreateProduct)
-		r.Put("/api/v1/admin/products/{id}", productsHandler.UpdateProduct)
-		r.Delete("/api/v1/admin/products/{id}", productsHandler.DeleteProduct)
-		r.Post("/api/v1/admin/products/{id}/image", productsHandler.UploadImage)
-		
-		r.Post("/api/v1/admin/skus", productsHandler.CreateSku)
+		// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
+		r.Group(func(r chi.Router) {
+			r.Use(authMw.RequireAuth)
+			r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+
+			r.Get("/admin/users", usersHandler.GetUsers)
+			r.Patch("/admin/users/{id}/role", usersHandler.UpdateRole)
+
+			r.Post("/admin/products", productsHandler.CreateProduct)
+			r.Put("/admin/products/{id}", productsHandler.UpdateProduct)
+			r.Delete("/admin/products/{id}", productsHandler.DeleteProduct)
+			r.Post("/admin/products/{id}/image", productsHandler.UploadImage)
+
+			r.Post("/admin/skus", productsHandler.CreateSku)
+
+			r.Get("/admin/orders", orderHandler.GetAdminOrders)
+			r.Patch("/admin/orders/{id}/status", orderHandler.UpdateStatus)
+		})
 	})
 
 	return r

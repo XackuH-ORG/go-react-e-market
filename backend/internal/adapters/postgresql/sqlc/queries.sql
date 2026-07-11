@@ -51,6 +51,17 @@ SELECT * FROM orders
 WHERE search_index = $1 
 ORDER BY created_at DESC;
 
+-- name: GetUserOrders :many
+SELECT * FROM orders 
+WHERE user_id = $1 
+ORDER BY created_at DESC;
+
+-- name: UpdateOrderStatus :one
+UPDATE orders
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
 -- name: CreateSession :one
 INSERT INTO sessions (user_id, token, expires_at)
 VALUES ($1, $2, $3)
