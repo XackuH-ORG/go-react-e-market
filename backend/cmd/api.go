@@ -21,6 +21,7 @@ import (
 
 	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/cart"
 	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
@@ -69,6 +70,9 @@ func (app *application) mount() http.Handler {
 	productsService := products.NewService(queries)
 	productsHandler := products.NewHandler(productsService)
 
+	cartService := cart.NewService(queries)
+	cartHandler := cart.NewHandler(cartService)
+
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
@@ -82,7 +86,10 @@ func (app *application) mount() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Use(authMw.RequireAuth)
 
-		// TODO: r.Get("/api/v1/cart", cartHandler.GetCart) <-- Добавим позже
+		r.Post("/api/v1/cart", cartHandler.AddToCart)
+		r.Get("/api/v1/cart", cartHandler.GetCart)
+		r.Delete("/api/v1/cart/{sku_id}", cartHandler.RemoveFromCart)
+		r.Delete("/api/v1/cart", cartHandler.ClearCart)
 	})
 
 	// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)

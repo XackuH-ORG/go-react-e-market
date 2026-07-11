@@ -29,6 +29,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	RemoveFromCart(ctx context.Context, arg RemoveFromCartParams) error
 	// Быстрый поиск по последним 4 символам публичного номера
 	SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]Order, error)
 	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error)

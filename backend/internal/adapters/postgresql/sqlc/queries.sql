@@ -23,6 +23,9 @@ WHERE c.user_id = $1 AND s.deleted_at IS NULL;
 -- name: ClearCart :exec
 DELETE FROM cart_items WHERE user_id = $1;
 
+-- name: RemoveFromCart :exec
+DELETE FROM cart_items WHERE user_id = $1 AND sku_id = $2;
+
 -- name: DecrementSkuStock :one
 -- Атомарное списание остатков. Если вернет sql.ErrNoRows - значит товара не хватает (Race Condition предотвращен)
 UPDATE skus 

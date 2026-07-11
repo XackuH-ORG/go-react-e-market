@@ -509,6 +509,20 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 	return items, nil
 }
 
+const removeFromCart = `-- name: RemoveFromCart :exec
+DELETE FROM cart_items WHERE user_id = $1 AND sku_id = $2
+`
+
+type RemoveFromCartParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	SkuID  uuid.UUID `json:"sku_id"`
+}
+
+func (q *Queries) RemoveFromCart(ctx context.Context, arg RemoveFromCartParams) error {
+	_, err := q.db.Exec(ctx, removeFromCart, arg.UserID, arg.SkuID)
+	return err
+}
+
 const searchOrders = `-- name: SearchOrders :many
 SELECT id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at FROM orders 
 WHERE search_index = $1 
