@@ -317,25 +317,61 @@ func (q *Queries) GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCart
 	return items, nil
 }
 
-const getProductByID = `-- name: GetProductByID :one
-SELECT id, category_id, name, description, deleted_at, created_at, updated_at, image_url FROM products
-WHERE id = $1 AND deleted_at IS NULL
+const getProductWithSkus = `-- name: GetProductWithSkus :many
+SELECT 
+    p.id AS p_id, p.name AS p_name, p.description AS p_description, p.image_url AS p_image_url, p.created_at AS p_created_at, p.updated_at AS p_updated_at,
+    s.id AS s_id, s.sku_code, s.price, s.stock, s.created_at AS s_created_at, s.updated_at AS s_updated_at
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id AND s.deleted_at IS NULL
+WHERE p.id = $1 AND p.deleted_at IS NULL
 `
 
-func (q *Queries) GetProductByID(ctx context.Context, id uuid.UUID) (Product, error) {
-	row := q.db.QueryRow(ctx, getProductByID, id)
-	var i Product
-	err := row.Scan(
-		&i.ID,
-		&i.CategoryID,
-		&i.Name,
-		&i.Description,
-		&i.DeletedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.ImageUrl,
-	)
-	return i, err
+type GetProductWithSkusRow struct {
+	PID          uuid.UUID          `json:"p_id"`
+	PName        string             `json:"p_name"`
+	PDescription pgtype.Text        `json:"p_description"`
+	PImageUrl    pgtype.Text        `json:"p_image_url"`
+	PCreatedAt   time.Time          `json:"p_created_at"`
+	PUpdatedAt   time.Time          `json:"p_updated_at"`
+	SID          pgtype.UUID        `json:"s_id"`
+	SkuCode      pgtype.Text        `json:"sku_code"`
+	Price        pgtype.Int4        `json:"price"`
+	Stock        pgtype.Int4        `json:"stock"`
+	SCreatedAt   pgtype.Timestamptz `json:"s_created_at"`
+	SUpdatedAt   pgtype.Timestamptz `json:"s_updated_at"`
+}
+
+func (q *Queries) GetProductWithSkus(ctx context.Context, id uuid.UUID) ([]GetProductWithSkusRow, error) {
+	rows, err := q.db.Query(ctx, getProductWithSkus, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetProductWithSkusRow{}
+	for rows.Next() {
+		var i GetProductWithSkusRow
+		if err := rows.Scan(
+			&i.PID,
+			&i.PName,
+			&i.PDescription,
+			&i.PImageUrl,
+			&i.PCreatedAt,
+			&i.PUpdatedAt,
+			&i.SID,
+			&i.SkuCode,
+			&i.Price,
+			&i.Stock,
+			&i.SCreatedAt,
+			&i.SUpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSessionByToken = `-- name: GetSessionByToken :one
@@ -369,41 +405,6 @@ func (q *Queries) GetSessionByToken(ctx context.Context, token string) (GetSessi
 	return i, err
 }
 
-const getSkusByProductID = `-- name: GetSkusByProductID :many
-SELECT id, product_id, sku_code, attributes, price, stock, deleted_at, created_at, updated_at FROM skus
-WHERE product_id = $1 AND deleted_at IS NULL
-`
-
-func (q *Queries) GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]Sku, error) {
-	rows, err := q.db.Query(ctx, getSkusByProductID, productID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Sku{}
-	for rows.Next() {
-		var i Sku
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProductID,
-			&i.SkuCode,
-			&i.Attributes,
-			&i.Price,
-			&i.Stock,
-			&i.DeletedAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getUserByEmail = `-- name: GetUserByEmail :one
 SELECT id, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1 LIMIT 1
 `
@@ -420,6 +421,46 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUserOrders = `-- name: GetUserOrders :many
+SELECT id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at FROM orders 
+WHERE user_id = $1 
+ORDER BY created_at DESC
+`
+
+func (q *Queries) GetUserOrders(ctx context.Context, userID uuid.UUID) ([]Order, error) {
+	rows, err := q.db.Query(ctx, getUserOrders, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Order{}
+	for rows.Next() {
+		var i Order
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicNumber,
+			&i.SearchIndex,
+			&i.UserID,
+			&i.Status,
+			&i.DeliveryType,
+			&i.DeliveryAddress,
+			&i.PickupPointID,
+			&i.PromoCodeID,
+			&i.TotalAmount,
+			&i.DiscountAmount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUsers = `-- name: GetUsers :many
@@ -506,6 +547,20 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeFromCart = `-- name: RemoveFromCart :exec
+DELETE FROM cart_items WHERE user_id = $1 AND sku_id = $2
+`
+
+type RemoveFromCartParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	SkuID  uuid.UUID `json:"sku_id"`
+}
+
+func (q *Queries) RemoveFromCart(ctx context.Context, arg RemoveFromCartParams) error {
+	_, err := q.db.Exec(ctx, removeFromCart, arg.UserID, arg.SkuID)
+	return err
 }
 
 const searchOrders = `-- name: SearchOrders :many
@@ -605,6 +660,39 @@ func (q *Queries) SearchProducts(ctx context.Context, arg SearchProductsParams) 
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateOrderStatus = `-- name: UpdateOrderStatus :one
+UPDATE orders
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING id, public_number, search_index, user_id, status, delivery_type, delivery_address, pickup_point_id, promo_code_id, total_amount, discount_amount, created_at, updated_at
+`
+
+type UpdateOrderStatusParams struct {
+	ID     uuid.UUID   `json:"id"`
+	Status OrderStatus `json:"status"`
+}
+
+func (q *Queries) UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error) {
+	row := q.db.QueryRow(ctx, updateOrderStatus, arg.ID, arg.Status)
+	var i Order
+	err := row.Scan(
+		&i.ID,
+		&i.PublicNumber,
+		&i.SearchIndex,
+		&i.UserID,
+		&i.Status,
+		&i.DeliveryType,
+		&i.DeliveryAddress,
+		&i.PickupPointID,
+		&i.PromoCodeID,
+		&i.TotalAmount,
+		&i.DiscountAmount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateProduct = `-- name: UpdateProduct :one

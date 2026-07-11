@@ -22,9 +22,6 @@ import (
 // @license.name  Apache 2.0
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
-// @host      localhost:8082
-// @BasePath  /
-
 // @securityDefinitions.apikey Bearer
 // @in header
 // @name Authorization
@@ -32,7 +29,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// NOTE: Загрузка конфигурации (YAML + Env)
+	// NOTE: Загрузка конфигурации
 	cfg := config.MustLoad()
 
 	// NOTE: Настройка логгера
@@ -44,10 +41,15 @@ func main() {
 	// NOTE: База данных
 	conn, err := pgxpool.New(ctx, cfg.DB.DSN)
 	if err != nil {
-		log.Error("Не удалось подключиться к базе данных", sl.Err(err))
+		log.Error("Ошибка инициализации пула подключений к БД", sl.Err(err))
 		os.Exit(1)
 	}
 	defer conn.Close()
+
+	if err := conn.Ping(ctx); err != nil {
+		log.Error("Не удалось подключиться к базе данных", sl.Err(err))
+		os.Exit(1)
+	}
 
 	log.Info("Успешное подключение к базе данных")
 

@@ -24,15 +24,17 @@ type Querier interface {
 	DecrementSkuStock(ctx context.Context, arg DecrementSkuStockParams) (Sku, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	GetCartItems(ctx context.Context, userID uuid.UUID) ([]GetCartItemsRow, error)
-	GetProductByID(ctx context.Context, id uuid.UUID) (Product, error)
+	GetProductWithSkus(ctx context.Context, id uuid.UUID) ([]GetProductWithSkusRow, error)
 	GetSessionByToken(ctx context.Context, token string) (GetSessionByTokenRow, error)
-	GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]Sku, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserOrders(ctx context.Context, userID uuid.UUID) ([]Order, error)
 	GetUsers(ctx context.Context, arg GetUsersParams) ([]GetUsersRow, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	RemoveFromCart(ctx context.Context, arg RemoveFromCartParams) error
 	// Быстрый поиск по последним 4 символам публичного номера
 	SearchOrders(ctx context.Context, searchIndex pgtype.Text) ([]Order, error)
 	SearchProducts(ctx context.Context, arg SearchProductsParams) ([]Product, error)
+	UpdateOrderStatus(ctx context.Context, arg UpdateOrderStatusParams) (Order, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 	UpdateProductImage(ctx context.Context, arg UpdateProductImageParams) (Product, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (UpdateUserRoleRow, error)

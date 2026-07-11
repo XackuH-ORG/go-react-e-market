@@ -23,6 +23,9 @@ WHERE c.user_id = $1 AND s.deleted_at IS NULL;
 -- name: ClearCart :exec
 DELETE FROM cart_items WHERE user_id = $1;
 
+-- name: RemoveFromCart :exec
+DELETE FROM cart_items WHERE user_id = $1 AND sku_id = $2;
+
 -- name: DecrementSkuStock :one
 -- Атомарное списание остатков. Если вернет sql.ErrNoRows - значит товара не хватает (Race Condition предотвращен)
 UPDATE skus 
@@ -47,6 +50,17 @@ VALUES ($1, $2, $3, $4);
 SELECT * FROM orders 
 WHERE search_index = $1 
 ORDER BY created_at DESC;
+
+-- name: GetUserOrders :many
+SELECT * FROM orders 
+WHERE user_id = $1 
+ORDER BY created_at DESC;
+
+-- name: UpdateOrderStatus :one
+UPDATE orders
+SET status = $2, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
 
 -- name: CreateSession :one
 INSERT INTO sessions (user_id, token, expires_at)
@@ -89,13 +103,13 @@ WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2;
 
--- name: GetProductByID :one
-SELECT * FROM products
-WHERE id = $1 AND deleted_at IS NULL;
-
--- name: GetSkusByProductID :many
-SELECT * FROM skus
-WHERE product_id = $1 AND deleted_at IS NULL;
+-- name: GetProductWithSkus :many
+SELECT 
+    p.id AS p_id, p.name AS p_name, p.description AS p_description, p.image_url AS p_image_url, p.created_at AS p_created_at, p.updated_at AS p_updated_at,
+    s.id AS s_id, s.sku_code, s.price, s.stock, s.created_at AS s_created_at, s.updated_at AS s_updated_at
+FROM products p
+LEFT JOIN skus s ON p.id = s.product_id AND s.deleted_at IS NULL
+WHERE p.id = $1 AND p.deleted_at IS NULL;
 -- name: UpdateProduct :one
 UPDATE products
 SET name = COALESCE(NULLIF($2, ''), name),

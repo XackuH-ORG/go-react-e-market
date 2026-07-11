@@ -282,7 +282,7 @@ type PickupPoint struct {
 
 type Product struct {
 	ID          uuid.UUID          `json:"id"`
-	CategoryID  uuid.UUID          `json:"category_id"`
+	CategoryID  pgtype.UUID        `json:"category_id"`
 	Name        string             `json:"name"`
 	Description pgtype.Text        `json:"description"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`

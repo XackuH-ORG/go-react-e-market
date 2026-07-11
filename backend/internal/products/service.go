@@ -5,6 +5,7 @@ import (
 
 	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -27,19 +28,28 @@ type Service interface {
 	CreateProduct(ctx context.Context, name, description, imageURL string) (database.Product, error)
 	CreateSku(ctx context.Context, productID uuid.UUID, skuCode string, price int32, stock int32) (database.Sku, error)
 	ListProducts(ctx context.Context, filters SearchFilters) ([]database.Product, error)
-	GetProductByID(ctx context.Context, id uuid.UUID) (database.Product, error)
-	GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]database.Sku, error)
 	GetProductDetails(ctx context.Context, id uuid.UUID) (ProductDetails, error)
 	UpdateProduct(ctx context.Context, id uuid.UUID, name, description string) (database.Product, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	UpdateProductImage(ctx context.Context, id uuid.UUID, imageURL string) (database.Product, error)
 }
 
-type svc struct {
-	db *database.Queries
+// ProductStore defines the data access methods required by the products service
+type ProductStore interface {
+	CreateProduct(ctx context.Context, arg database.CreateProductParams) (database.Product, error)
+	CreateSku(ctx context.Context, arg database.CreateSkuParams) (database.Sku, error)
+	SearchProducts(ctx context.Context, arg database.SearchProductsParams) ([]database.Product, error)
+	GetProductWithSkus(ctx context.Context, id uuid.UUID) ([]database.GetProductWithSkusRow, error)
+	UpdateProduct(ctx context.Context, arg database.UpdateProductParams) (database.Product, error)
+	DeleteProduct(ctx context.Context, id uuid.UUID) error
+	UpdateProductImage(ctx context.Context, arg database.UpdateProductImageParams) (database.Product, error)
 }
 
-func NewService(db *database.Queries) Service {
+type svc struct {
+	db ProductStore
+}
+
+func NewService(db ProductStore) Service {
 	return &svc{db: db}
 }
 
@@ -77,32 +87,53 @@ func (s *svc) ListProducts(ctx context.Context, filters SearchFilters) ([]databa
 	})
 }
 
-// GetProductByID получает информацию о продукте
-func (s *svc) GetProductByID(ctx context.Context, id uuid.UUID) (database.Product, error) {
-	return s.db.GetProductByID(ctx, id)
-}
+// GetProductByID is removed as we merged it
 
-// GetSkusByProductID получает все SKU, привязанные к продукту
-func (s *svc) GetSkusByProductID(ctx context.Context, productID uuid.UUID) ([]database.Sku, error) {
-	return s.db.GetSkusByProductID(ctx, productID)
-}
+// GetSkusByProductID is removed as we merged it
 
-// GetProductDetails получает продукт и его SKU в одном вызове
+// GetProductDetails получает продукт и его SKU в одном вызове (через JOIN)
 func (s *svc) GetProductDetails(ctx context.Context, id uuid.UUID) (ProductDetails, error) {
 	var details ProductDetails
 
-	product, err := s.db.GetProductByID(ctx, id)
+	rows, err := s.db.GetProductWithSkus(ctx, id)
 	if err != nil {
 		return details, err
 	}
 
-	skus, err := s.db.GetSkusByProductID(ctx, id)
-	if err != nil {
-		return details, err
+	if len(rows) == 0 {
+		return details, pgx.ErrNoRows // Имитируем отсутствие записи
 	}
 
-	details.Product = product
-	details.Skus = skus
+	// Заполняем информацию о продукте (она дублируется во всех строках)
+	firstRow := rows[0]
+	details.Product = database.Product{
+		ID:          firstRow.PID,
+		Name:        firstRow.PName,
+		Description: firstRow.PDescription,
+		ImageUrl:    firstRow.PImageUrl,
+		CreatedAt:   firstRow.PCreatedAt,
+		UpdatedAt:   firstRow.PUpdatedAt,
+	}
+
+	// Заполняем массив SKU
+	for _, row := range rows {
+		// Если s_id == nil (точнее Valid == false), значит у продукта еще нет SKU (результат LEFT JOIN)
+		if !row.SID.Valid {
+			continue
+		}
+
+		sku := database.Sku{
+			ID:        row.SID.Bytes,
+			ProductID: firstRow.PID,
+			SkuCode:   row.SkuCode.String,
+			Price:     row.Price.Int32,
+			Stock:     row.Stock.Int32,
+			CreatedAt: row.SCreatedAt.Time,
+			UpdatedAt: row.SUpdatedAt.Time,
+		}
+		details.Skus = append(details.Skus, sku)
+	}
+
 	return details, nil
 }
 

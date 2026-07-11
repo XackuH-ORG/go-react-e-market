@@ -1,7 +1,6 @@
 package config
 
 import (
-	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -12,90 +11,90 @@ import (
 )
 
 type Config struct {
-	Env  string     `yaml:"env" env:"ENV" env-default:"local"`
-	HTTP HTTPConfig `yaml:"http"`
-	DB   DBConfig   `yaml:"db"`
+	Env  string `env:"ENV" env-default:"dev"`
+	HTTP HTTPConfig
+	DB   DBConfig
+	JWT  JWTConfig
 }
 
 type HTTPConfig struct {
-	Addr         string        `yaml:"addr" env:"HTTP_ADDR" env-default:"0.0.0.0:8080"`
-	ReadTimeout  time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT" env-default:"4s"`
-	WriteTimeout time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"4s"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
-	ReqTimeout   time.Duration `yaml:"req_timeout" env:"HTTP_REQ_TIMEOUT" env-default:"60s"`
-	User         string        `yaml:"user" env-required:"true"`
-	Password     string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
+	Addr         string        `env:"HTTP_ADDR" env-default:"0.0.0.0:8080"`
+	ReadTimeout  time.Duration `env:"HTTP_READ_TIMEOUT" env-default:"4s"`
+	WriteTimeout time.Duration `env:"HTTP_WRITE_TIMEOUT" env-default:"4s"`
+	IdleTimeout  time.Duration `env:"HTTP_IDLE_TIMEOUT" env-default:"60s"`
+	ReqTimeout   time.Duration `env:"HTTP_REQ_TIMEOUT" env-default:"60s"`
 }
 
 type DBConfig struct {
-	DSN    string `yaml:"dsn" env:"GOOSE_DBSTRING" env-required:"true"`
-	Driver string `yaml:"driver" env:"GOOSE_DRIVER" env-default:"postgres"`
+	DSN    string `env:"GOOSE_DBSTRING" env-required:"true"`
+	Driver string `env:"GOOSE_DRIVER" env-default:"postgres"`
 }
 
-// MustLoad загружает конфигурацию. Паникует, если не удается загрузить конфигурацию
+type JWTConfig struct {
+	Secret string        `env:"JWT_SECRET" env-required:"true"`
+	TTL    time.Duration `env:"JWT_TTL" env-default:"1h"`
+}
+
+// MustLoad загружает конфигурацию из .env файла и переменных окружения.
+// Паникует, если отсутствуют обязательные переменные (отмеченные как env-required).
 func MustLoad() *Config {
-	// 1. Попытка загрузить .env
-	// Сначала ищем .env в текущей директории
-	if err := godotenv.Load(); err != nil {
-		// Если не нашли в текущей рабочей директории, пробуем найти рядом с бинарником
-		if execPath, err := os.Executable(); err == nil {
-			execDir := filepath.Dir(execPath)
-			_ = godotenv.Load(filepath.Join(execDir, ".env"))
+	configPath := os.Getenv("CONFIG_PATH")
+
+	if configPath != "" {
+		// Если задан CONFIG_PATH, пытаемся загрузить указанный файл
+		if err := godotenv.Load(configPath); err != nil {
+			log.Printf("warning: failed to load config from CONFIG_PATH (%s): %v", configPath, err)
 		}
-	}
+	} else {
+		// Если не задан, ищем .env файл по иерархии
+		loaded := false
 
-	// 2. Определяем путь к файлу конфигурации
-	var configPath string
-
-	// Используем изолированный FlagSet, чтобы избежать паники/конфликтов с другими флагами
-	fs := flag.NewFlagSet("config", flag.ContinueOnError)
-	fs.StringVar(&configPath, "config", "", "path to config file")
-	// Игнорируем ошибки парсинга флагов здесь, так как другие флаги могут быть обработаны в main
-	_ = fs.Parse(os.Args[1:])
-
-	// Если флаг не задан, проверяем переменную окружения CONFIG_PATH
-	if configPath == "" {
-		configPath = os.Getenv("CONFIG_PATH")
-	}
-
-	// Если путь все еще не задан, ищем файлы конфигурации по умолчанию в текущей папке и рядом с бинарником
-	if configPath == "" {
-		var execDir string
-		if execPath, err := os.Executable(); err == nil {
-			execDir = filepath.Dir(execPath)
+		// 1. Пытаемся загрузить .env из текущей рабочей директории
+		if err := godotenv.Load(); err == nil {
+			loaded = true
 		}
 
-		defaults := []string{
-			"config/local.yaml",
-			"local.yaml",
-		}
-		if execDir != "" {
-			defaults = append(defaults,
-				filepath.Join(execDir, "config/local.yaml"),
-				filepath.Join(execDir, "local.yaml"),
-			)
+		// 2. Если не нашли, идем вверх по дереву каталогов (ищем до корня проекта - где лежит go.mod)
+		if !loaded {
+			dir, err := os.Getwd()
+			if err == nil {
+				for {
+					parent := filepath.Dir(dir)
+					if parent == dir { // Достигли корня файловой системы
+						break
+					}
+					dir = parent
+
+					envPath := filepath.Join(dir, ".env")
+					if _, err := os.Stat(envPath); err == nil {
+						if err := godotenv.Load(envPath); err == nil {
+							loaded = true
+							break
+						}
+					}
+
+					// Если нашли go.mod, значит это корень проекта, дальше вверх не идем
+					if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+						break
+					}
+				}
+			}
 		}
 
-		for _, path := range defaults {
-			if _, err := os.Stat(path); err == nil {
-				configPath = path
-				break
+		// 3. Последняя попытка - рядом с бинарником (полезно для продакшна)
+		if !loaded {
+			if execPath, err := os.Executable(); err == nil {
+				execDir := filepath.Dir(execPath)
+				_ = godotenv.Load(filepath.Join(execDir, ".env"))
 			}
 		}
 	}
 
-	if configPath == "" {
-		log.Fatal("CONFIG_PATH is not set and no default config file (local.yaml) was found")
-	}
-
-	// Проверяем существование файла конфигурации перед чтением
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("config file does not exist: %s", configPath)
-	}
-
+	// Читаем переменные окружения в структуру
+	// Если .env файл не был найден вообще, readEnv попытается прочитать системные переменные окружения напрямую (например, в Docker/K8s)
 	var cfg Config
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		log.Fatalf("failed to read config from %s: %s", configPath, err)
+	if err := cleanenv.ReadEnv(&cfg); err != nil {
+		log.Fatalf("failed to read config: %s", err)
 	}
 
 	return &cfg

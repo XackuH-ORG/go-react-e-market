@@ -15,18 +15,30 @@ import (
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	database "github.com/XackuH-ORG/go-react-e-market/backend/internal/adapters/postgresql/sqlc"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/auth"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/cart"
 	appMiddleware "github.com/XackuH-ORG/go-react-e-market/backend/internal/middleware"
+	"github.com/XackuH-ORG/go-react-e-market/backend/internal/orders"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/products"
 	"github.com/XackuH-ORG/go-react-e-market/backend/internal/users"
 )
 
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"*"}, // Для разработки разрешаем всё
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	r.Use(middleware.RequestID)              // важно для ограничения скорости запросов
 	r.Use(middleware.ClientIPFromRemoteAddr) // важно для ограничения скорости, аналитики и отслеживания
@@ -59,36 +71,50 @@ func (app *application) mount() http.Handler {
 	productsService := products.NewService(queries)
 	productsHandler := products.NewHandler(productsService)
 
-	r.Route("/api/v1/auth", func(r chi.Router) {
-		r.Post("/register", authHandler.Register)
-		r.Post("/login", authHandler.Login)
-	})
+	cartService := cart.NewService(queries)
+	cartHandler := cart.NewHandler(cartService)
 
-	// Публичные роуты продуктов
-	r.Get("/api/v1/products", productsHandler.ListProducts)
-	r.Get("/api/v1/products/{id}", productsHandler.GetProduct)
+	orderService := orders.NewService(app.db)
+	orderHandler := orders.NewHandler(orderService)
 
-	// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
-	r.Group(func(r chi.Router) {
-		r.Use(authMw.RequireAuth)
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/auth/register", authHandler.Register)
+		r.Post("/auth/login", authHandler.Login)
 
-		// TODO: r.Get("/api/v1/cart", cartHandler.GetCart) <-- Добавим позже
-	})
+		r.Get("/products", productsHandler.ListProducts)
+		r.Get("/products/{id}", productsHandler.GetProduct)
 
-	// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
-	r.Group(func(r chi.Router) {
-		r.Use(authMw.RequireAuth)
-		r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+		// Защищенные роуты для ВСЕХ авторизованных пользователей (Корзина, Заказы)
+		r.Group(func(r chi.Router) {
+			r.Use(authMw.RequireAuth)
 
-		r.Get("/api/v1/admin/users", usersHandler.GetUsers)
-		r.Patch("/api/v1/admin/users/{id}/role", usersHandler.UpdateRole)
+			r.Post("/cart", cartHandler.AddToCart)
+			r.Get("/cart", cartHandler.GetCart)
+			r.Delete("/cart/{sku_id}", cartHandler.RemoveFromCart)
+			r.Delete("/cart", cartHandler.ClearCart)
 
-		r.Post("/api/v1/admin/products", productsHandler.CreateProduct)
-		r.Put("/api/v1/admin/products/{id}", productsHandler.UpdateProduct)
-		r.Delete("/api/v1/admin/products/{id}", productsHandler.DeleteProduct)
-		r.Post("/api/v1/admin/products/{id}/image", productsHandler.UploadImage)
-		
-		r.Post("/api/v1/admin/skus", productsHandler.CreateSku)
+			r.Post("/orders", orderHandler.CreateOrder)
+			r.Get("/orders", orderHandler.GetOrders)
+		})
+
+		// Защищенные роуты ТОЛЬКО ДЛЯ АДМИНОВ (Товары, Управление заказами)
+		r.Group(func(r chi.Router) {
+			r.Use(authMw.RequireAuth)
+			r.Use(appMiddleware.RequireAdmin) // Второй слой защиты
+
+			r.Get("/admin/users", usersHandler.GetUsers)
+			r.Patch("/admin/users/{id}/role", usersHandler.UpdateRole)
+
+			r.Post("/admin/products", productsHandler.CreateProduct)
+			r.Put("/admin/products/{id}", productsHandler.UpdateProduct)
+			r.Delete("/admin/products/{id}", productsHandler.DeleteProduct)
+			r.Post("/admin/products/{id}/image", productsHandler.UploadImage)
+
+			r.Post("/admin/skus", productsHandler.CreateSku)
+
+			r.Get("/admin/orders", orderHandler.GetAdminOrders)
+			r.Patch("/admin/orders/{id}/status", orderHandler.UpdateStatus)
+		})
 	})
 
 	return r
