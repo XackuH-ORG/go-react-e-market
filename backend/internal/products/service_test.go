@@ -101,9 +101,9 @@ func TestService_GetProductDetails(t *testing.T) {
 			mockSetup: func(m *mocks.ProductStore) {
 				rows := []database.GetProductWithSkusRow{
 					{
-						PID:   productID,
-						PName: "Test",
-						SID:   pgtype.UUID{Bytes: expectedSkus[0].ID, Valid: true},
+						PID:     productID,
+						PName:   "Test",
+						SID:     pgtype.UUID{Bytes: expectedSkus[0].ID, Valid: true},
 						SkuCode: pgtype.Text{String: "SKU-1", Valid: true},
 					},
 				}
